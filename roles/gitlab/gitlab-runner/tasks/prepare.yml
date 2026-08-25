@@ -1,0 +1,15 @@
+# Runner preparation tasks
+
+- name: Creates Runner service directory
+  ansible.builtin.file:
+    path: "{{ service_dir }}"
+    state: directory
+  tags:
+    - service-dir
+
+- name: Creates Runner config directory
+  ansible.builtin.file:
+    path: "{{ service_dir }}/configs"
+    state: directory
+  tags:
+    - config-dir

@@ -1,0 +1,59 @@
+---
+# kail addon tasks
+
+- name: Set kail architecture fact
+  ansible.builtin.set_fact:
+    kubectl_kail_arch: "{{ kubectl_arch_map[ansible_facts['architecture']] | default('amd64') }}"
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kail
+
+- name: Download kail release archive
+  ansible.builtin.get_url:
+    url: "https://github.com/boz/kail/releases/download/{{ kubectl_kail_version }}/kail_{{ kubectl_kail_version }}_linux_{{ kubectl_kail_arch }}.tar.gz"
+    dest: "/tmp/kail_{{ kubectl_kail_version }}_linux_{{ kubectl_kail_arch }}.tar.gz"
+    mode: '0644'
+  become: true
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kail
+
+- name: Extract kail binary
+  ansible.builtin.unarchive:
+    src: "/tmp/kail_{{ kubectl_kail_version }}_linux_{{ kubectl_kail_arch }}.tar.gz"
+    dest: /tmp
+    remote_src: true
+    include:
+      - kail
+  become: true
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kail
+
+- name: Install kail binary
+  ansible.builtin.copy:
+    src: /tmp/kail
+    dest: "{{ kubectl_kail_install_dir }}/kail"
+    mode: '0755'
+    remote_src: true
+  become: true
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kail
+
+- name: Clean up kail download artifacts
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  become: true
+  loop:
+    - "/tmp/kail_{{ kubectl_kail_version }}_linux_{{ kubectl_kail_arch }}.tar.gz"
+    - /tmp/kail
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kail

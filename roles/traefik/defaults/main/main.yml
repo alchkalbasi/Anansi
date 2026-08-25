@@ -1,0 +1,32 @@
+---
+# defaults file for traefik
+
+project_dir: /opt/services
+service_dir: "{{ project_dir }}/traefik"
+
+# .env vars
+docker_networks:
+  - prinet
+  - pubnet
+traefik_docker_image: traefik:v3.6.9
+traefik_restart_policy: unless-stopped
+traefik_hostname: traefik
+traefik_container_name: traefik
+traefik_log_level: INFO
+traefik_api_dashboard: true
+traefik_api_insecure: true
+traefik_api: true
+traefik_docker_provider: true
+traefik_docker_network: pubnet
+traefik_docker_expose_default: false
+traefik_https: web-secure
+traefik_enable_prometheus: true
+traefik_cert_resolver_le_acme_tlschallenge: true
+traefik_certresolver: le
+traefik_cert_path: /certs/acme.json
+traefik_acme_email: ali99kalbasi82@gmail.com
+main_domain: elk.hyperlikes.ir
+traefik_domain: "traefik.{{ main_domain }}"
+traefik_tls: true
+traefik_loadbalancer_port: 8080
+traefik_metrics_domain: "metrics.traefik.{{ main_domain }}"

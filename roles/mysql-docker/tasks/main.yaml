@@ -1,0 +1,50 @@
+---
+- name: Check mysql directories
+  become: true
+  file:
+    path: "{{ item }}"
+    state: directory
+    recurse: yes
+  with_items:
+    - /var/mysql/backups
+    - /etc/mysql/conf.d
+    - /var/mysql/lib
+  tags: mysql-dirs
+
+- name: Copy mysql templates
+  become: yes 
+  template:
+    src: "roles/mysql/templates/{{ item }}.j2"
+    dest: "/etc/mysql/conf.d/{{ item }}"
+    force: yes
+  with_items:
+    - "character.cnf"
+    - "mysqld.cnf"
+    - "mode.cnf"
+  tags: mysql-tamplates
+
+- name: Create Docker network
+  docker_network:
+    name: "{{ NETWORK }}"
+    state: present
+    tags: docker-network
+
+- name: MYSQL container
+  docker_container:
+    name: mysql
+    image: "mysql:{{ MYSQL_VERSION }}"
+    env:
+      MYSQL_ROOT_PASSWORD: "{{ MYSQL_ROOT_PASSWORD }}"
+      MYSQL_DATABASE: "{{ MYSQL_DATABASE }}"
+    ports:
+      - '{{ MYSQL_PORT }}:3306'
+    state: started
+    recreate: true
+    restart_policy: on-failure
+    networks:
+      - name: "{{ NETWORK }}"
+    volumes:
+      - "/var/mysql/backups:/var/backups/mysql"
+      - "/etc/mysql/conf.d:/etc/mysql/conf.d"
+      - "/var/mysql/lib:/var/lib/mysql"
+  tags: mysql-run

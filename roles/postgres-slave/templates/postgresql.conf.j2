@@ -1,0 +1,74 @@
+# ============================================================
+# postgresql.conf (SLAVE)
+# ============================================================
+
+listen_addresses = '*'
+port = {{ postgres_slave_port | default(5432) }}
+
+# ---------- Security ----------
+password_encryption = scram-sha-256
+ssl = {{ 'on' if enable_ssl else 'off' }}
+
+{% if enable_ssl %}
+ssl_cert_file = 'server.crt'
+ssl_key_file  = 'server.key'
+{% endif %}
+
+# ---------- Recovery / Standby (CRITICAL FOR SLAVE) ----------
+hot_standby = on
+# Logic to connect to Master
+primary_conninfo = 'host={{ primary_ip }} port={{ postgres_master_port }} user={{ postgres_replication_user }} password={{ postgres_replication_password }} application_name={{ postgres_slave_hostname }}'
+primary_slot_name = 'slave_slot'  # Must match the slot created on Master
+
+# If the stream lags, fetch WALs from the archive (requires shared/mounted volume)
+{% if enable_archive %}
+restore_command = 'cp {{ wal_archive_dir }}/%f %p'
+# archive_cleanup_command = 'pg_archivecleanup {{ wal_archive_dir }} %r' # Optional cleanup
+{% endif %}
+
+# ---------- Replication / WAL ----------
+# We keep these "Master-ready" settings so if this node is promoted, 
+# it is immediately ready to accept its own Slaves.
+wal_level = replica
+max_wal_senders = {{ max_wal_senders }}
+max_replication_slots = {{ max_replication_slots }}
+wal_keep_size = {{ wal_keep_size }}
+wal_compression = on
+
+# ---------- Archiving (Passive) ----------
+# On a Slave, 'archive_mode = on' is inert until the node is promoted to Master.
+# It does NOT archive WALs while it is a Slave (unless set to 'always').
+{% if enable_archive %}
+archive_mode = on
+archive_command = 'test ! -f {{ wal_archive_dir }}/%f && cp %p {{ wal_archive_dir }}/%f'
+{% else %}
+archive_mode = off
+{% endif %}
+
+# ---------- Checkpoint tuning ----------
+checkpoint_timeout = '15min'
+max_wal_size = '8GB'
+min_wal_size = '1GB'
+
+# ---------- Logging ----------
+logging_collector = off
+log_line_prefix = '%m [%p] %u@%d %h '
+log_connections = on
+log_disconnections = on
+log_checkpoints = on
+log_lock_waits = on
+log_min_duration_statement = 2000
+
+cluster_name = '{{ postgres_slave_hostname }}'
+
+
+# ---------- Workers ----------
+max_worker_processes = {{ max_worker_processes }}
+max_parallel_workers_per_gather = {{ max_parallel_workers_per_gather }}
+max_parallel_workers = {{max_parallel_workers }}
+max_parallel_maintenance_workers = {{ max_parallel_maintenance_workers }} 
+
+# ---------- Memory ----------
+shared_buffers = {{ shared_buffers }}
+effective_cache_size = {{ effective_cache_size }}
+work_mem = {{ work_mem }}

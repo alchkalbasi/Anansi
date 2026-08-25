@@ -1,0 +1,82 @@
+---
+# tasks/devtools/tools.yml
+
+- name: Install base utility packages
+  ansible.builtin.apt:
+    name: "{{ setup_tools_base_packages }}"
+    state: present
+    update_cache: true
+  become: true
+  when: setup_tools_install_base | bool
+  tags:
+    - system-setup
+    - system-setup-install-tools
+    - system-setup-base-tools
+
+- name: Install network utility packages
+  ansible.builtin.apt:
+    name: "{{ setup_tools_network_packages }}"
+    state: present
+  become: true
+  when: setup_tools_install_network | bool
+  tags:
+    - system-setup
+    - system-setup-install-tools
+    - system-setup-network-tools
+
+- name: Install development packages
+  ansible.builtin.apt:
+    name: "{{ setup_tools_development_packages }}"
+    state: present
+  become: true
+  when: setup_tools_install_development | bool
+  tags:
+    - system-setup
+    - system-setup-install-tools
+    - system-setup-
+
+- name: Install desktop utility packages
+  ansible.builtin.apt:
+    name: "{{ setup_tools_desktop_packages }}"
+    state: present
+  become: true
+  when: setup_tools_install_desktop | bool
+  tags:
+    - system-setup
+    - system-setup-install-tools
+    - system-setup-desktop-tools
+
+- name: Install terminal productivity packages
+  ansible.builtin.apt:
+    name: "{{ setup_tools_terminal_packages }}"
+    state: present
+  become: true
+  when: setup_tools_install_terminal | bool
+  tags:
+    - system-setup
+    - system-setup-install-tools
+    - system-setup-terminal-tools
+
+- name: Remove unused packages
+  ansible.builtin.apt:
+    autoremove: true
+    autoclean: true
+  become: true
+  when: setup_tools_apt_cleanup | bool
+  tags:
+    - system-setup
+    - system-setup-install-tools
+    - system-setup-apt-cleanup
+
+- name: Print enabled package groups
+  ansible.builtin.debug:
+    msg:
+      - "Base tools installed"
+      - "Network tools installed"
+      - "Development tools installed"
+      - "Desktop tools installed"
+      - "Terminal tools installed"
+  tags:
+    - system-setup
+    - system-setup-install-tools
+    - system-setup-log-msg

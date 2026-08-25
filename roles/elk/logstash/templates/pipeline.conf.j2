@@ -1,0 +1,36 @@
+input {
+  beats {
+    port => 5044
+  }
+}
+
+filter {
+  # If the data comes from an Elastic Agent, it will have a field 
+  # called [data_stream]. We want to preserve that!
+  if [@metadata][beat] == "filebeat" or [data_stream] {
+    mutate {
+      add_field => { "[@metadata][target_index]" => "%{[data_stream][type]}-%{[data_stream][dataset]}-%{[data_stream][namespace]}" }
+    }
+  } else {
+    mutate {
+      add_field => { "[@metadata][target_index]" => "logs-generic-default" }
+    }
+  }
+}
+
+output {
+  elasticsearch {
+    hosts => ["${ELASTIC_HOSTS}"] # Matches Logstash env var naming
+    user => "${ELASTIC_USER}"
+    password => "${ELASTIC_PASS}"
+    
+    # This dynamic naming allows Fleet Dashboards to actually find your logs
+    index => "%{[@metadata][target_index]}"
+    
+    # Important for modern ELK:
+    action => "create" 
+    
+    ssl => true
+    ssl_certificate_verification => false # Keep as false while using Traefik self-signed/LE
+  }
+}

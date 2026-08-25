@@ -1,0 +1,6 @@
+---
+- name: Download a file
+  ansible.builtin.get_url:
+    url: "{{ url }}"
+    dest: "{{ dest_download }}"
+    mode: "{{ permission }}"

@@ -1,0 +1,40 @@
+---
+# install docker tasks
+
+- name: Force update apt cache to detect newly added Docker repository
+  ansible.builtin.apt:
+    update_cache: true
+  become: true
+  tags:
+    - docker
+    - docker-install
+
+- name: Install modern Docker CE packages
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: "{{ docker_package_state | default('present') }}"
+  become: true
+  notify: Restart docker service
+  tags:
+    - docker
+    - docker-install
+
+- name: Hold Docker packages at current version to prevent accidental upgrades
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - docker-ce
+    - docker-ce-cli
+    - containerd.io
+  become: true
+  when: docker_pin_version | default(false)
+  tags:
+    - docker
+    - docker-install
+    - docker-install-pin

@@ -1,0 +1,68 @@
+networks:
+  ${NETWORK1}:
+    external: true
+  ${NETWORK2}:
+    external: true
+
+volumes:
+  traefik-cets:
+    name: traefik-certs
+    external: false
+
+services:
+  traefik:
+    image: ${TRAEFIK_IMAGE}
+    container_name: ${CONTAINER_NAME} 
+    hostname: ${HOSTNAME}
+    restart: ${RESTART_POLICY}
+    command:
+      - "--log.level=${TRAEFIK_LOG_LEVEL}"
+      - "--api.dashboard=${TRAEFIK_API_DASHBOARD}"
+      - "--api.insecure=${TRAEFIK_API_INSECURE}"
+      - "--ping=${TRAEFIK_PING}"
+      - "--providers.docker=${TRAEFIK_DOCKER_PROVIDER}"
+      - "--providers.docker.network=${TRAEFIK_DOCKER_NETWORK}"
+      - "--providers.docker.exposedbydefault=${TRAEFIK_DOCKER_EXPOSE_DEFAULT}"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entryPoint.to=${TRAEFIK_HTTPS}"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.${TRAEFIK_HTTPS}.address=:443"
+      - "--metrics.prometheus=${TRAEFIK_ENABLE_PROMETHEUS}"
+      - "--entryPoints.metrics.address=:8082"
+      - "--metrics.prometheus.entryPoint=metrics"
+      - "--certificatesresolvers.${traefik_certresolver}.acme.tlschallenge=${TRAEFIK_CERT_RESOLVER_LE_ACME_TLSCHALLENGE}"
+      - "--certificatesresolvers.${traefik_certresolver}.acme.email=${TRAEFIK_ACME_EMAIL}"
+      - "--certificatesresolvers.${traefik_certresolver}.acme.storage=${TRAEFIK_CERT_PATH}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "traefik-certs:/certs"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - ${TRAEFIK_DOCKER_NETWORK}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.middlewares.web-auth.basicauth.users=${TRAEFIK_WEB_AUTH_USER}:${TRAEFIK_WEB_AUTH_PASS}"
+      - "traefik.http.routers.http-traefik.rule=Host(`${TRAEFIK_DOMAIN}`)"
+      - "traefik.http.routers.http-traefik.entrypoints=web"
+      - "traefik.http.routers.traefik.rule=Host(`${TRAEFIK_DOMAIN}`)"
+      - "traefik.http.routers.traefik.entrypoints=${TRAEFIK_HTTPS}"
+      - "traefik.http.routers.traefik.middlewares=web-auth@docker"
+      - "traefik.http.routers.traefik.tls=${TRAEFIK_TLS}"
+      - "traefik.http.routers.traefik.tls.certresolver=${TRAEFIK_CERTRESOLVER}"
+      - "traefik.http.services.traefik.loadBalancer.server.port=${TRAEFIK_LOADBALANCER_PORT}"
+      # prometheus metrics
+      - "traefik.http.routers.http-traefik-metrics.rule=Host(`${TRAEFIK_METRICS_DOMAIN}`)"
+      - "traefik.http.routers.http-traefik-metrics.entrypoints=web"
+      - "traefik.http.routers.traefik_metrics.rule=Host(`${TRAEFIK_METRICS_DOMAIN}`)"
+      - "traefik.http.routers.traefik-metrics.entrypoints=${TRAEFIK_HTTPS}"
+      - "traefik.http.routers.traefik-metrics.middlewares=web-auth@docker"
+      - "traefik.http.routers.traefik-metrics.tls=${TRAEFIK_TLS}"
+      - "traefik.http.routers.traefik-metrics.tls.certresolver=${TRAEFIK_CERTRESOLVER}"
+      - "traefik.http.routers.traefik-metrics.service=metrics"
+      - "traefik.http.services.metrics.loadbalancer.server.port=8082"
+
+
+
+

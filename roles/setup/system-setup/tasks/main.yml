@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: MIT-0
+---
+# tasks file for system-setup
+
+- name: User specification tasks
+  ansible.builtin.include_tasks: ./system/userconf.yml
+  tags:
+    - system-setup
+    - system-setup-user-conf
+
+- name: Apt specification tasks
+  ansible.builtin.include_tasks: ./system/apt.yml
+  tags:
+    - system-setup
+    - system-setup-apt-conf
+
+- name: SSH specification tasks
+  ansible.builtin.include_tasks: ./system/ssh.yml
+  tags:
+    - system-setup
+    - system-setup-ssh-conf
+
+- name: Tools installation tasks
+  ansible.builtin.include_tasks: ./devtools/tools.yml
+  tags:
+    - system-setup
+    - system-setup-install-tools
+
+- name: Other apps installation tasks
+  ansible.builtin.include_tasks: ./apps/appinstall.yml
+  tags:
+    - system-setup
+    - system-setup-install-apps
+
+- name: System configuration tasks
+  ansible.builtin.include_tasks: ./system/config.yml
+  tags:
+    - system-setup
+    - system-setup-config
+
+# TODO: [ ] Add xray task

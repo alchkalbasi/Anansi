@@ -1,0 +1,120 @@
+---
+# tasks file for nginx-docker
+
+- name: Check if Docker CE and Compose Plugin are installed
+  ansible.builtin.command: "{{ item }}"
+  register: docker_install_check
+  ignore_errors: true
+  changed_when: false
+  loop:
+    - "docker --version"
+    - "docker compose version"
+  tags:
+    - check-docker
+
+- name: Fail if Docker CE is missing
+  ansible.builtin.fail:
+    msg: "CRITICAL: Docker (docker-ce) is not installed on this host. Please install it before running this playbook."
+  when: docker_install_check.results[0].rc != 0
+  tags:
+    - check-docker
+
+- name: Fail if Docker Compose is missing
+  ansible.builtin.fail:
+    msg: "CRITICAL: Docker Compose Plugin is missing. Run 'sudo apt install docker-compose-plugin' to fix."
+  when: docker_install_check.results[1].rc != 0
+  tags:
+    - check-docker
+
+- name: Success message of docker-check task
+  ansible.builtin.debug:
+    msg: "Environment check passed. Docker and Compose are ready!"
+  tags:
+    - check-docker
+
+- name: Creates service directory 
+  ansible.builtin.file:
+    path: "{{ service_dir }}"
+    state: directory
+  tags:
+    - preparing
+
+- name: Create Nginx config directory
+  ansible.builtin.file:
+    path: "{{ service_dir }}/{{ nginx_config_dir }}"
+    state: directory
+    mode: "{{ service_dir_mode | default('0755') }}"
+  tags:
+  - preparing
+
+- name: Copy file with owner and permissions
+  ansible.builtin.copy:
+    src: compose.yml
+    dest: "{{ service_dir }}/compose.yml"
+  tags:
+    - preparing
+
+- name: Template the .env file to the path
+  ansible.builtin.template:
+    src: .env.j2
+    dest: "{{ service_dir }}/.env"
+  tags:
+    - preparing
+
+- name: Template the Nginx config file
+  ansible.builtin.template:
+    src: "confs/{{ item }}"
+    dest: "{{ service_dir }}/nginx.conf"
+  with_first_found:
+    - files:
+        - "nginx_{{ nginx_config_type | default('default') }}.conf.j2"
+      paths:
+        - "../templates/confs"
+  tags:
+    - conf
+
+- name: Install Certbot to get certificates.
+  ansible.builtin.apt:
+    name: "{{ item}}"
+    state: present
+  update_cache: yes
+  loop: "{{ certbot_packages }}"
+  become: yes
+  tags:
+    - certbot
+
+- name: Obtain TLS certificate using Standalone
+  ansible.builtin.command: >
+    certbot certonly --standalone
+    --email {{ certbot_email }}
+    --non-interactive
+    --agree-tos
+    -d {{ subdomain }}.{{ domain }}
+  args:
+    creates: "/etc/letsencrypt/live/{{ subdomain }}.{{ domain }}/fullchain.pem"
+  become: yes
+  tags:
+    - certbot
+
+- name: Pull Nginx image for project
+  community.docker.docker_compose_v2_pull:
+    project_src: "{{ service_dir }}"
+    policy: missing #pull if only the images doesn't exist locally
+  tags:
+    - pull
+
+- name: Create docker external networks with name
+  docker_network:
+    name: "{{ item }}"
+    driver_options:
+      com.docker.network.bridge.name: "{{ item }}"
+  loop: "{{ docker_networks }}"
+  tags:
+    - docker-networks
+
+- name: Deploy Nginx Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ service_dir }}"
+  tags:
+    - deploy
+

@@ -1,0 +1,8 @@
+# Managed by Ansible
+
+[Resolve]
+DNS={{ docker_resolved_dns | join(' ') }}
+{% if docker_resolved_fallback_dns is defined and docker_resolved_fallback_dns | length > 0 %}
+FallbackDNS={{ docker_resolved_fallback_dns | join(' ') }}
+{% endif %}
+DNSStubListener=yes

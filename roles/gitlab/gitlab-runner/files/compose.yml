@@ -1,0 +1,29 @@
+networks:
+  prinet:
+    name: ${PRIVATE_NETWORK}
+    external: true
+  pubnet:
+    name: ${PUBLIC_NETWORK}
+    external: true
+
+volumes:
+  runner_data:
+    name: runner_data
+
+services:
+  runner:
+    image: gitlab/gitlab-runner:${RUNNER_IMAGE_TAG}
+    restart: ${RESTART_POLICY}
+    container_name: ${RUNNER_CONTAINER_NAME}
+    hostname: ${RUNNER_HOSTNAME}
+    # Environment variables just in case proxy is needed
+    # environment:
+    #   HTTP_PROXY: "${HTTP_URL_PROXY}"
+    #   HTTPS_PROXY: "${HTTPS_URL_PROXY}"
+    #   ALL_PROXY: "${ALL_URL_PROXY}"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "runner_data:/etc/gitlab-runner"
+      - "./configs:/etc/gitlab-runner"
+    networks:
+      - prinet

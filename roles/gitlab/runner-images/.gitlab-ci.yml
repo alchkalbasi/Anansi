@@ -1,0 +1,71 @@
+stages:
+  - build
+
+default:
+  image: docker:dind
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+
+workflow:
+  rules:
+    - when: always
+
+build-dind-image:
+  stage: build
+  script:
+    - cd dind-image
+    - docker build -t ${IMAGE_PATH}/runner-image:dind .
+    - docker push ${IMAGE_PATH}/runner-image:dind
+  # rules:
+  #   - changes:
+  #       - dind-image/*
+
+build-bash-image:
+  stage: build
+  script:
+    - cd bash-image
+    - docker build -t ${IMAGE_PATH}/bash-image:bash .
+    - docker push ${IMAGE_PATH}/bash-image:bash
+  # rules:
+  #   - changes:
+  #       - bash-image/*
+
+build-flutter-image:
+  stage: build
+  script:
+    - cd flutter-image
+    - docker build -t ${IMAGE_PATH}/flutter-image:flutter .
+    - docker push ${IMAGE_PATH}/flutter-image:flutter
+  # rules:
+  #   - changes:
+  #       - flutter-image/*
+
+build-git-image:
+  stage: build
+  script:
+    - cd git-image
+    - docker build -t ${IMAGE_PATH}/git-image:git .
+    - docker push ${IMAGE_PATH}/git-image:git
+  # rules:
+  #   - changes:
+  #       - git-image/*
+
+build-mc-image:
+  stage: build
+  script:
+    - cd mc-image
+    - docker build -t ${IMAGE_PATH}/mc-image:mc .
+    - docker push ${IMAGE_PATH}/mc-image:mc
+  # rules:
+  #   - changes:
+  #       - mc-image/*
+
+build-trivy-image:
+  stage: build
+  script:
+    - cd trivy-image
+    - docker build -t ${IMAGE_PATH}/trivy-image:trivy .
+    - docker push ${IMAGE_PATH}/trivy-image:trivy
+  # rules:
+  #   - changes:
+  #       - trivy-image/*

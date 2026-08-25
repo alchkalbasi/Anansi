@@ -1,0 +1,28 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for fleet
+
+# global
+project_dir: /opt/services/elk
+service_dir: "{{ project_dir }}/fleet"
+docker_networks:
+  - prinet
+  - pubnet
+
+# .env vars
+fleet_image_tag: 8.19.11
+restart_policy: unless-stopped
+fleet_container_name: fleet-server
+fleet_subdomain: fleet
+main_domain: elk.com
+elastic_hostname: "http://elasticsearch:9200"
+elastic_subdomain: e
+elastic_password: 1234
+elastic_username: elastic
+fleet_server_enable: true
+fleet_server_insecure_http: true
+kibana_fleet_setup: true
+kibana_hostname: http://kibana:5601
+fleet_server_service_token: 1234
+fleet_url: "https://{{ fleet_subdomain }}.{{ main_domain }}"
+fleet_server_policy_id: fleet-server-policy

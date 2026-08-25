@@ -1,0 +1,31 @@
+networks:
+  pubnet:
+    driver: bridge
+  prinet:
+    driver: bridge
+
+volumes:
+  minio_data:
+
+services:
+  minio:
+    image: "minio/minio:{{ compose.MINIO_TAG }}"
+    container_name: "{{ compose.MINIO_CONTAINER_NAME }}"
+    environment:
+      MINIO_ROOT_USER: "{{ compose.MINIO_ROOT_USER }}"
+      MINIO_ROOT_PASSWORD: "{{ compose.MINIO_ROOT_PASSWORD }}"
+    command: "{{ compose.MINIO_COMMAND }}"
+    ports:
+      - "{{ compose.MINIO_PORT_1 }}"
+      - "{{ compose.MINIO_PORT_2 }}"
+    volumes:
+      - minio_data:/data
+    networks:
+      - pubnet
+      - prinet
+    restart: "{{ compose.RESTART_POLICY }}"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "{{ compose.HEALTHCHECK_URL }}"]
+      interval: "{{ compose.HEALTHCHECK_INTERVAL }}"
+      timeout: "{{ compose.HEALTHCHECK_TIMEOUT }}"
+      retries: "{{ compose.HEALTHCHECK_RETRIES }}"

@@ -1,0 +1,17 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for gitlab-runner
+
+service_dir: "{{ project_dir }}/runner"
+project_dir: /opt/services
+docker_network:
+  - pubnet
+  - prinet
+
+# .env variables
+runner_image_tag: v18.3.1
+runner_container_name: runner
+runner_hostname: runner
+runner_http_proxy: http://xray:10809
+runner_https_proxy: http://xray:10809
+runner_all_proxy: socks5h://xray:2080

@@ -1,0 +1,17 @@
+# agent configuration tasks
+
+- name: Template the agent .env file to path
+  ansible.builtin.template:
+    src: .env.j2
+    dest: "{{ service_dir }}/.env"
+    mode: '0755'
+  tags:
+    - aenv-file
+
+- name: Copy the agent compose file with owner and permissions
+  ansible.builtin.copy:
+    src: compose.yml
+    dest: "{{ service_dir }}/compose.yml"
+    mode: '0755'
+  tags:
+    - acompose-file

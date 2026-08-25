@@ -1,0 +1,21 @@
+# ============================================================
+# pg_hba.conf (PRIMARY)
+# ============================================================
+##local host socket access 
+
+local   all             all                                     peer
+## local host tcp access 
+host    all             all             127.0.0.1/32            scram-sha-256
+host    all             all             ::1/128                 scram-sha-256
+
+{% if enable_ssl %}
+hostssl replication     {{ postgres_replication_user }}   {{ standby_ip }}/32    scram-sha-256
+hostssl all             all                      {{ app_network }}/32      scram-sha-256
+{% else %}
+host replication        {{ postgres_replication_user }}   {{ standby_ip }}/32    scram-sha-256
+host all                all                      {{ app_network }}/32      scram-sha-256
+{% endif %}
+
+# Default deny
+host    all             all             0.0.0.0/0               reject
+host    all             all             ::0/0                   reject

@@ -1,0 +1,10 @@
+---
+- name: Setup confluence Service
+  import_tasks: confluence-setup.yml
+  tags:
+    - setup_confluence
+
+# - name: Activate confluence service
+#   import_tasks: confluence-activate.yml
+#   tags:
+#     - activate_confluence

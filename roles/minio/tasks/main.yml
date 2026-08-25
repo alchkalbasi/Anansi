@@ -1,0 +1,12 @@
+---
+- name: Install Minio
+  include_tasks: install.yml
+  tags:
+    - minio
+    - install
+
+- name: Configure Minio
+  include_tasks: configure.yml
+  tags:
+    - minio
+    - configure

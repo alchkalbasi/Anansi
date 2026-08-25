@@ -1,0 +1,35 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for iptables
+
+- name: Template the iptables file to path
+  ansible.builtin.template:
+    src: iptable-rules.j2
+    dest: "{{ iptable_rules_path }}/rules.v4"
+    mode: '0640'
+    owner: root
+    group: root
+  tags:
+    - rules-file
+
+- name: Apply iptables rules from file
+  ansible.builtin.shell: "iptables-restore < /etc/iptables/rules.v4"
+  args:
+    warn:
+  register: iptables_output
+  tags:
+    - restore-rules
+
+- name: Report on iptables restoration result
+  ansible.builtin.debug:
+    msg: "{{ iptables_output.stdout }}"
+  when: iptables_output.rc == 0
+  tags:
+    - success-log
+
+- name: Report on iptables restoration failure
+  ansible.builtin.fail:
+    msg: "Failed to restore iptables rules. RC: {{ iptables_output.rc }}. Stderr: {{ iptables_output.stderr }}"
+  when: iptables_output.rc != 0
+  tags:
+    - error-log

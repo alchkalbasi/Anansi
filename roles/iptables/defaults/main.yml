@@ -1,0 +1,18 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for iptables
+
+iptable_rules_path: /etc/iptables
+
+# rules template vars
+enable_drop_input: true
+enable_drop_forward: true
+enable_drop_output: false
+enable_lo: true
+enable_conntrack: true
+enable_http_port: true
+enable_https_port: true
+enable_ssh: true
+ssh_port: 22
+enable_icmp: true
+enable_docker_forward: true

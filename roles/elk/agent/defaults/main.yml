@@ -1,0 +1,19 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for agent
+
+# global
+project_dir: /opt/services/elk
+service_dir: "{{ project_dir }}/agent"
+docker_networks:
+  - prinet
+  - pubnet
+
+# .env vars
+agent_image_tag: 8.19.11
+restart_policy: unless-stopped
+agent_container_name: elastic-agent
+fleet_subdomain: fleet
+main_domain: elk.com
+enrollment_token: 1234
+fleet_url: "https://fleet.elk.com"

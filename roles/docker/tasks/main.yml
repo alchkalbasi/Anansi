@@ -1,0 +1,77 @@
+---
+# Main tasks file for docker
+
+- name: Gather only OS-related facts
+  ansible.builtin.setup:
+    gather_subset:
+      - "!all"
+      - "os_family"
+      - "distribution"
+      - "system"
+  tags:
+    - docker
+    - docker-check-distro
+
+- name: Verify Operating System is Debian or Ubuntu
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] == "Debian"
+    fail_msg: >-
+      This role only supports Debian-based distributions.
+      Found: {{ ansible_facts.get('distribution', 'unknown') }}
+  tags:
+    - docker
+    - docker-check-distro
+
+- name: Show the registered distro name
+  ansible.builtin.debug:
+    msg: "Distribution: {{ ansible_distribution }}"
+  tags:
+    - docker
+    - docker-check-distro
+
+- name: Pre-installation tasks
+  ansible.builtin.include_tasks: prerequisites.yml
+  tags:
+    - docker
+    - docker-pre-install
+
+- name: Use Xray for install Docker if Enable
+  ansible.builtin.include_tasks: xray-setup.yml
+  when: docker_xray_enable | bool
+  tags:
+    - docker
+    - docker-install-xray
+
+- name: Use DNS for install Docker if Enable
+  ansible.builtin.include_tasks: dns-setup.yml
+  when: docker_dns_enable | bool
+  tags:
+    - docker
+    - docker-set-dns
+
+- name: Install docker and other packages
+  ansible.builtin.include_tasks: install-docker.yml
+  tags:
+    - docker
+    - docker-install
+
+- name: Xray cleanup if Enable
+  ansible.builtin.include_tasks: xray-cleanup.yml
+  when: docker_xray_cleanup | bool
+  tags:
+    - docker
+    - docker-clean-xray
+
+- name: DNS cleanup if Enable
+  ansible.builtin.include_tasks: dns-cleanup.yml
+  when: docker_dns_cleanup | bool
+  tags:
+    - docker
+    - docker-clean-dns
+
+- name: Configure docker
+  ansible.builtin.include_tasks: config-docker.yml
+  tags:
+    - docker
+    - docker-config-docker

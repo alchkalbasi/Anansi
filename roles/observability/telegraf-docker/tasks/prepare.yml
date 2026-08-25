@@ -1,0 +1,23 @@
+# Telegraf Systemd preparation tasks
+
+- name: Create Observability project directory 
+  ansible.builtin.file:
+    path: "{{ project_dir }}"
+    state: directory
+  tags:
+    - project-dir
+
+- name: Create Telegraf-Docker service directory 
+  ansible.builtin.file:
+    path: "{{ service_dir }}"
+    state: directory
+  tags:
+    - service-dir
+
+- name: Create Telegraf-Docker config directory 
+  ansible.builtin.file:
+    path: "{{ service_dir }}/configs"
+    state: directory
+    mode: '0755'
+  tags:
+    - config-dir

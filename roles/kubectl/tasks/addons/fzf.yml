@@ -1,0 +1,12 @@
+---
+# fzf addon tasks
+
+- name: Install fzf
+  ansible.builtin.apt:
+    name: fzf
+    state: present
+  become: true
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-fzf

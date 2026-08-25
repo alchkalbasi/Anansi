@@ -1,0 +1,70 @@
+---
+# kube-ps1 addon tasks (only applies to users that already run Oh My Zsh)
+
+- name: Check for Oh My Zsh installation
+  ansible.builtin.stat:
+    path: "/home/{{ item }}/.oh-my-zsh"
+  register: kubectl_ohmyzsh_check
+  loop: "{{ kubectl_target_users }}"
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kube-ps1
+
+- name: Create kube-ps1 custom plugin directory
+  ansible.builtin.file:
+    path: "/home/{{ item.item }}/.oh-my-zsh/custom/plugins/kube-ps1"
+    state: directory
+    owner: "{{ item.item }}"
+    mode: '0755'
+  become: true
+  loop: "{{ kubectl_ohmyzsh_check.results }}"
+  when: item.stat.exists
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kube-ps1
+
+- name: Download kube-ps1 plugin script
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/jonmosco/kube-ps1/master/kube-ps1.sh
+    dest: "/home/{{ item.item }}/.oh-my-zsh/custom/plugins/kube-ps1/kube-ps1.plugin.zsh"
+    owner: "{{ item.item }}"
+    mode: '0644'
+  become: true
+  loop: "{{ kubectl_ohmyzsh_check.results }}"
+  when: item.stat.exists
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kube-ps1
+
+- name: Enable kube-ps1 prompt in zshrc
+  ansible.builtin.blockinfile:
+    path: "/home/{{ item.item }}/.zshrc"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - kube-ps1"
+    create: true
+    owner: "{{ item.item }}"
+    mode: '0644'
+    block: |
+      source ~/.oh-my-zsh/custom/plugins/kube-ps1/kube-ps1.plugin.zsh
+      PROMPT=$PROMPT'$(kube_ps1) '
+  become: true
+  loop: "{{ kubectl_ohmyzsh_check.results }}"
+  when: item.stat.exists
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kube-ps1
+
+- name: Warn when Oh My Zsh is not present for kube-ps1
+  ansible.builtin.debug:
+    msg: >-
+      Oh My Zsh not found at /home/{{ item.item }}/.oh-my-zsh; skipping
+      kube-ps1 setup for this user.
+  loop: "{{ kubectl_ohmyzsh_check.results }}"
+  when: not item.stat.exists
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kube-ps1

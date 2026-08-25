@@ -1,0 +1,29 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for logstash
+
+# global
+project_dir: /opt/services/elk
+service_dir: "{{ project_dir }}/logstash"
+docker_networks:
+  - prinet
+  - pubnet
+
+# .env vars
+logstash_image_tag: 8
+logstash_container_name: logstash
+restart_policy: unless-stopped
+minimum_heap_size: 1g
+maximum_heap_size: 1g
+elastic_hostname: "https://{{ elastic_sundomain  }}.{{ main_domain }}:443"
+elastic_sundomain: elastic
+main_domain: elk.com
+elastic_username: elastic
+elastic_password: 1234
+logstash_node_name: logstash
+logstash_http_host: "0.0.0.0"
+logstash_pipeline_workers: 2
+logstash_pipeline_batch_size: 125
+logstash_queue_type: persisted
+logstash_monitoring_enabled: true
+logstash_subdomain: logstash

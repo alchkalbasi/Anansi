@@ -1,0 +1,25 @@
+networks:
+  ${NETWORK1}:
+    external: true
+  ${NETWORK2}:
+    external: true
+    
+volumes:
+  nginx-data:
+    name: nginx-data
+    
+services:
+  nginx:
+    image: ${NGINX_IMAGE}
+    restart: ${RESTART_POLICY}
+    container_name: ${CONTAINER_NAME} 
+    hostname: ${HOSTNAME}
+    volumes:
+      # SSL keys
+      - /etc/letsencrypt/live/${NGINX_FULL_DOMAIN}:/etc/nginx/ssl/live:ro
+      - /etc/letsencrypt/archive/${NGINX_FULL_DOMAIN}:/etc/nginx/ssl/archive:ro
+      # nginx.conf
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - ${NETWORK1}
+      - ${NETWORK2}

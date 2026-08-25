@@ -1,0 +1,35 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for elasticsearch
+
+# global
+project_dir: /opt/services/elk
+service_dir: "{{ project_dir }}/elasticsearch"
+docker_networks:
+  - prinet
+  - pubnet
+
+# .env vars
+elastic_image_tag: 8
+elastic_container_name: elasticsearch
+restart_policy: unless-stopped
+elastic_password: 1234
+minimum_heap_size: 1g
+maximum_heap_size: 1g
+bootstrap_memory_lock: true
+elastic_node_name: elasticsearch
+elastic_cluster_name: docker-cluster
+elastic_discovery_type: single-node
+elastic_network_host: 0.0.0.0
+elastic_http_port: 9200
+elastic_cors_enabled: true
+elastic_cors_allow_origins: "*"
+elastic_xpack_security_enabled: true
+elastic_xpack_security_authc_api_key_enabled: true
+elastic_xpack_monitoring_collection_enabled: true
+elastic_xpack_license_self_generated_type: basic
+elastic_cluster_routing_allocation_disk_threshold_enabled: true
+elastic_cluster_routing_allocation_disk_watermark_low: 80%
+elastic_cluster_routing_allocation_disk_watermark_high: 90%
+elastic_sub_domain: elastic
+main_domain: elk.com

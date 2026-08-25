@@ -1,0 +1,46 @@
+---
+# tasks/system/apt.yml
+
+- name: Generate APT Custom Sources lists
+  ansible.builtin.template:
+    src: custom.sources.j2
+    dest: /etc/apt/sources.list.d/custom.sources
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: Update apt cache
+  when: setup_apt_create_custom_repo | bool
+  tags:
+    - system-setup
+    - system-setup-apt-conf
+    - system-setup-apt-sources
+
+- name: Ensure APT dependencies are installed
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      # - software-properties-common
+      - gnupg
+      - curl
+    state: present
+    update_cache: true
+  become: true
+  when: setup_apt_install_dependencies | bool
+  tags:
+    - system-setup
+    - system-setup-apt-conf
+    - system-setup-apt-deps
+
+- name: Perform full system upgrade
+  ansible.builtin.apt:
+    upgrade: full
+    autoremove: true
+    autoclean: true
+  become: true
+  when: setup_apt_full_upgrade | bool
+  tags:
+    - system-setup
+    - system-setup-apt-conf
+    - system-setup-full-upgrade

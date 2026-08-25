@@ -1,0 +1,45 @@
+---
+# xray cleanup tasks
+
+- name: Stop and disable Xray service
+  ansible.builtin.systemd_service:
+    name: xray
+    state: stopped
+    enabled: false
+  failed_when: false
+  become: true
+  tags:
+    - docker
+    - docker-clean-xray
+    - docker-xray-disable-systemd
+
+- name: Remove Xray systemd service
+  ansible.builtin.file:
+    path: /etc/systemd/system/xray.service
+    state: absent
+  become: true
+  tags:
+    - docker
+    - docker-clean-xray
+    - docker-xray-remove-systemd
+
+- name: Remove Xray configuration directory
+  ansible.builtin.file:
+    path: /etc/xray
+    state: absent
+  become: true
+  tags:
+    - docker
+    - docker-clean-xray
+    - docker-xray-remove-config
+
+- name: Remove Xray binary
+  ansible.builtin.file:
+    path: /usr/local/bin/xray
+    state: absent
+  notify: Reload Systemd Daemon
+  become: true
+  tags:
+    - docker
+    - docker-clean-xray
+    - docker-delete-xray

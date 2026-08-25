@@ -1,0 +1,27 @@
+---
+- name: Render policy JSON template for each bucket
+  template:
+    src: "{{ MINIO_POLICY_JSON }}"
+    dest: "/tmp/{{ item }}-policy.json"
+    mode: "0644"
+  loop: "{{ MINIO_BUCKETS }}"
+  loop_control:
+    loop_var: item
+  vars:
+    bucket_name: "{{ item }}"
+    access_mode: "{{ 'readwrite' }}"
+  tags:
+    - minio
+    - policy
+
+- name: Create or update policy for each bucket
+  ansible.builtin.shell: >
+    {{ MINIO_CLIENT_BIN }} admin policy list local | grep -q "^{{ item }}-policy$" &&
+    {{ MINIO_CLIENT_BIN }} admin policy update local {{ item }}-policy /tmp/{{ item }}-policy.json ||
+    {{ MINIO_CLIENT_BIN }} admin policy create local {{ item }}-policy /tmp/{{ item }}-policy.json
+  loop: "{{ MINIO_BUCKETS }}"
+  loop_control:
+    loop_var: item
+  tags:
+    - minio
+    - policy

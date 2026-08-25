@@ -1,0 +1,102 @@
+---
+# tasks file for kubectl
+
+- name: Gather only OS-related facts
+  ansible.builtin.setup:
+    gather_subset:
+      - "!all"
+      - "os_family"
+      - "distribution"
+      - "system"
+  tags:
+    - kubectl
+    - kubectl-check-distro
+
+- name: Verify Operating System is Debian or Ubuntu
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] == "Debian"
+    fail_msg: >-
+      This role only supports Debian-based distributions.
+      Found: {{ ansible_facts.get('distribution', 'unknown') }}
+  tags:
+    - kubectl
+    - kubectl-check-distro
+
+- name: Install kubectl
+  ansible.builtin.include_tasks: install-kubectl.yml
+  tags:
+    - kubectl
+    - kubectl-install
+
+- name: Configure kubectl shell integration
+  ansible.builtin.include_tasks: config-kubectl.yml
+  tags:
+    - kubectl
+    - kubectl-config
+
+- name: Install fzf
+  ansible.builtin.include_tasks: addons/fzf.yml
+  when: kubectl_fzf_enable | bool
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-fzf
+
+- name: Install Krew and Krew plugins
+  ansible.builtin.include_tasks: addons/krew.yml
+  when: kubectl_krew_enable | bool
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-krew
+
+- name: Configure kubectx/kubens aliases
+  ansible.builtin.include_tasks: addons/kubectx-kubens.yml
+  when:
+    - kubectl_kubectx_kubens_aliases_enable | bool
+    - kubectl_krew_enable | bool
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kubectx-kubens
+
+- name: Install kubecolor
+  ansible.builtin.include_tasks: addons/kubecolor.yml
+  when: kubectl_kubecolor_enable | bool
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kubecolor
+
+- name: Install kubeval
+  ansible.builtin.include_tasks: addons/kubeval.yml
+  when: kubectl_kubeval_enable | bool
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kubeval
+
+- name: Install kail
+  ansible.builtin.include_tasks: addons/kail.yml
+  when: kubectl_kail_enable | bool
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kail
+
+- name: Install kube-shell
+  ansible.builtin.include_tasks: addons/kube-shell.yml
+  when: kubectl_kube_shell_enable | bool
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kube-shell
+
+- name: Configure kube-ps1 prompt
+  ansible.builtin.include_tasks: addons/kube-ps1.yml
+  when: kubectl_kube_ps1_enable | bool
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kube-ps1

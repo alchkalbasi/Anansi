@@ -1,0 +1,39 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for telegraf
+
+project_dir: "/opt/services/observability"
+service_dir: "{{ project_dir }}/telegraf-docker"
+docker_networks:
+  - prinet
+  - pubnet
+
+# .env vars
+restart_policy: unless-stopped
+telegraf_image_tag: latest
+telegraf_containrer_name: telegraf-docker
+influx_url: influxdb.observability.com
+influx_token: abcdefghijklmnopqrstuvwxyz
+influx_org: orgorg
+influx_bucket: default
+telegraf_memory_limit: 512M
+telegraf_memory_reservation: 256M
+telegraf_max_log_size: 50m
+telegraf_max_logfile: 3
+
+# config file vars
+agent_type: "docker-monitor"
+hostname: "rustfs-01"
+agent_interval: "10s"
+metric_batch_size: 1000
+metric_buffer_limit: 10000
+flush_interval: "10s"
+telegraf_docker_log_endpoint: "unix:///var/run/docker.sock"
+telegraf_docker_log_from_beginning: false
+telegraf_docker_log_timeout: "5s"
+telegraf_docker_log_source_tag: false
+# Lists for filtering containers (empty includes all)
+telegraf_docker_log_include: []
+telegraf_docker_log_exclude: []
+telegraf_docker_container_state_include: []
+telegraf_docker_label_include: []

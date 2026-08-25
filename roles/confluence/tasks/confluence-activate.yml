@@ -1,0 +1,53 @@
+---
+- name: Wait until confluence container is healthy
+  shell: "docker inspect --format='{{ '{{.State.Health.Status}}' }}' confluence"
+  register: confluence_status
+  until: confluence_status.stdout == "healthy"
+  retries: 30
+  delay: 10
+
+- name: Pause so user can get server ID from confluence UI
+  pause:
+    prompt: "confluence is up. Please open the UI, get the server ID, then press Enter."
+
+- name: Prompt for confluence server ID
+  pause:
+    prompt: "Enter the confluence server ID"
+  register: confluence_server_id_input
+
+- name: Run Atlassian agent with server ID
+  shell: >
+    docker exec confluence java -jar /opt/atlassian-agent.jar
+    -d -m "{{ confluence_email }}" -o "{{ company }}" -p "{{ service_name }}" -s {{ confluence_server_id_input.user_input }}
+  register: agent_output
+  ignore_errors: true
+
+# - name: Show output of agent command
+#   debug:
+#     msg: "{{ agent_output.stdout | replace('\\n', '\n') }}"
+
+# # docker exec confluence java -jar /opt/atlassian-agent.jar -d -m info@mizban.app -o Mizban -p confluence -s BNZ8-ZQSU-AF4J-27K8
+
+
+- name: Extract full license and flatten newlines
+  set_fact:
+    confluence_license: >-
+      {{ agent_output.stdout
+        | regex_findall('([A-Za-z0-9+/=]+)')
+        | join('') }}
+
+- name: Show license in single line
+  debug:
+    msg: "{{ confluence_license }}"
+
+# - name: Extract only the license block (multiline)
+#   set_fact:
+#     confluence_license: >-
+#       {{ agent_output.stdout 
+#          | regex_search("(?s)(?<=Your license code\\(Don't copy this line!!!\\):\\s*)([A-Za-z0-9+/=\\n]+)", "\\1") 
+#          | trim }}
+
+# - name: Save license to file
+#   copy:
+#     dest: /tmp/confluence_license.txt
+#     content: "{{ confluence_license }}"

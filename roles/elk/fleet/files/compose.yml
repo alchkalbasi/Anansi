@@ -1,0 +1,50 @@
+networks:
+  prinet:
+    external: true
+    name: ${PRIVATE_NETWORK}
+  pubnet:
+    external: true
+    name: ${PUBLIC_NETWORK}
+
+services:  
+  fleet:
+    image: elastic/elastic-agent:${FLEET_IMAGE_TAG}
+    restart: ${RESTART_POLICY}
+    container_name: ${FLEET_CONTAINER_NAME}
+    hostname: "${FLEET_SUBDOMAIN}.${MAIN_DOMAIN}"
+    environment:
+      ELASTICSEARCH_HOST: ${ELASTIC_HOSTNAME}
+      ELASTICSEARCH_USERNAME: ${ELASTIC_USERNAME}
+      ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD}
+      FLEET_SERVER_ENABLE: ${FLEET_SERVER_ENABLE}
+      FLEET_SERVER_ELASTICSEARCH_HOST: ${ELASTIC_HOSTNAME}
+      FLEET_SERVER_INSECURE_HTTP: ${FLEET_SERVER_INSECURE_HTTP}
+      KIBANA_FLEET_SETUP: ${KIBANA_FLEET_SETUP}
+      KIBANA_FLEET_HOST: ${KIBANA_HOSTNAME}
+      FLEET_SERVER_HOST: 0.0.0.0
+      FLEET_SERVER_PORT: 8220
+      FLEET_SERVER_POLICY_ID: ${FLEET_SERVER_POLICY_ID}
+      FLEET_SERVER_SERVICE_TOKEN: ${FLEET_SERVER_SERVICE_TOKEN}
+      FLEET_URL: https://fleet.elk.hyperlikes.ir${FLEET_URL}
+    volumes:
+      - ./fdata:/usr/share/elastic-agent/state
+    networks:
+      - pubnet
+      - prinet
+    healthcheck:
+      test: ["CMD", "elastic-agent", "status"]
+      retries: 10
+      interval: 10s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=pubnet"
+      - "traefik.http.routers.fleet.entrypoints=web"
+      - "traefik.http.routers.fleet.rule=Host(`${FLEET_SUBDOMAIN}.${MAIN_DOMAIN}`)"
+      - "traefik.http.routers.fleet.middlewares=https-redirect"
+      - "traefik.http.middlewares.https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.fleet-secure.entrypoints=web-secure"
+      - "traefik.http.routers.fleet-secure.rule=Host(`${FLEET_SUBDOMAIN}.${MAIN_DOMAIN}`)"
+      - "traefik.http.routers.fleet-secure.tls=true"
+      - "traefik.http.routers.fleet-secure.tls.options=default"
+      - "traefik.http.routers.fleet-secure.tls.certresolver=le"
+      - "traefik.http.services.fleet.loadbalancer.server.port=8220"

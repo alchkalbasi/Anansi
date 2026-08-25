@@ -1,0 +1,25 @@
+# logstash configuration tasks
+
+- name: Template the logstash .env file to path
+  ansible.builtin.template:
+    src: .env.j2
+    dest: "{{ service_dir }}/.env"
+    mode: '0755'
+  tags:
+    - lenv-file
+
+- name: Copy the logstash compose file with owner and permissions
+  ansible.builtin.copy:
+    src: compose.yml
+    dest: "{{ service_dir }}/compose.yml"
+    mode: '0755'
+  tags:
+    - lcompose-file
+
+- name: Template the logstash pipeline file to path
+  ansible.builtin.template:
+    src: pipeline.conf.j2
+    dest: "{{ service_dir }}/pipeline/pipeline.conf"
+    mode: '0755'
+  tags:
+    - pipeline-file

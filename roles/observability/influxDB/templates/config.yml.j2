@@ -1,0 +1,47 @@
+# /etc/influxdb2/config.yml
+# Managed by automation (Jinja2 Template)
+
+# --- General ---
+# Log level: error, warn, info, debug
+log-level: "{{ influxdb_log_level | default('info') }}"
+
+# --- HTTP / API API Settings ---
+# Bind address for the HTTP API
+http-bind-address: "{{ influxdb_http_bind_address | default(':8086') }}"
+
+# Set to true to enable pprof (profiling) endpoint
+pprof-disabled: {{ influxdb_pprof_disabled | default(true) | lower }}
+
+# --- Storage & Performance (TSM & WAL) ---
+# The path to the directory where InfluxDB stores its engine data
+engine-path: "{{ influxdb_engine_path | default('/var/lib/influxdb2/engine') }}"
+
+# The maximum size of the WAL (Write-Ahead Log) before a flush to TSM occurs
+wal-fsync-delay: "{{ influxdb_wal_fsync_delay | default('0s') }}"
+
+# The maximum size a shard is allowed to grow before being compacted.
+cache-max-memory-size: {{ influxdb_cache_max_memory_size | default(1073741824) }} 
+
+# The size at which the cache triggers a snapshot to disk.
+cache-snapshot-memory-size: {{ influxdb_cache_snapshot_memory_size | default(26214400) }} 
+
+# --- Query Management ---
+# Limit the amount of memory a single Flux query can use (0 means unlimited)
+query-memory-bytes: {{ influxdb_query_memory_bytes | default(536870912) }} 
+
+# Limit the maximum number of concurrent queries
+query-concurrency: {{ influxdb_query_concurrency | default(10) }}
+
+# Maximum time a query is allowed to run before being killed
+query-initial-memory-bytes: {{ influxdb_query_initial_memory_bytes | default(0) }}
+query-max-memory-bytes: {{ influxdb_query_max_memory_bytes | default(0) }}
+
+# --- Security (TLS/SSL) ---
+{% if influxdb_tls_enabled is defined and influxdb_tls_enabled %}
+tls-cert: "{{ influxdb_tls_cert_path | default('/etc/influxdb2/ssl/influxdb.crt') }}"
+tls-key: "{{ influxdb_tls_key_path | default('/etc/influxdb2/ssl/influxdb.key') }}"
+tls-min-version: "{{ influxdb_tls_min_version | default('1.2') }}"
+{% else %}
+# TLS is disabled in this environment. 
+# It is highly recommended to place InfluxDB behind a reverse proxy (like Nginx/Traefik) for SSL.
+{% endif %}

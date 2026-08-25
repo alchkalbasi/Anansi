@@ -1,0 +1,152 @@
+---
+# tasks/system/config.yml
+
+- name: Set ZSH as default shell
+  ansible.builtin.user:
+    name: "{{ setup_user_name }}"
+    shell: "{{ setup_config_zsh_path }}"
+  become: true
+  when: setup_config_set_zsh_default | bool
+  tags:
+    - system-setup
+    - system-setup-config
+    - system-setup-default-zsh
+
+- name: Deploy .zshrc
+  ansible.builtin.copy:
+    src: zshrc
+    dest: "/home/{{ setup_user_name }}/.zshrc"
+    owner: "{{ setup_user_name }}"
+    group: "{{ setup_user_name }}"
+    mode: "0644"
+  become: true
+  when: setup_config_zshrc | bool
+  tags:
+    - system-setup
+    - system-setup-config
+    - system-setup-config-zshrc
+
+- name: Deploy .zsh_aliases
+  ansible.builtin.copy:
+    src: zsh_aliases
+    dest: "/home/{{ setup_user_name }}/.zsh_aliases"
+    owner: "{{ setup_user_name }}"
+    group: "{{ setup_user_name }}"
+    mode: "0644"
+  become: true
+  when: setup_config_zsh_aliases | bool
+  tags:
+    - system-setup
+    - system-setup-config
+    - system-setup-config-aliases
+
+# Ensure .zshrc loads aliases
+- name: Ensure zsh aliases are sourced in .zshrc
+  ansible.builtin.lineinfile:
+    path: "/home/{{ setup_user_name }}/.zshrc"
+    line: "[ -f ~/.zsh_aliases ] && source ~/.zsh_aliases"
+    create: true
+    state: present
+    owner: "{{ setup_user_name }}"
+    group: "{{ setup_user_name }}"
+    mode: '0644'
+  become: true
+  when: setup_config_zsh_aliases | bool
+  tags:
+    - system-setup
+    - system-setup-config
+    - system-setup-config-aliases
+
+- name: Deploy .vimrc
+  ansible.builtin.copy:
+    src: vimrc
+    dest: "/home/{{ setup_user_name }}/.vimrc"
+    owner: "{{ setup_user_name }}"
+    group: "{{ setup_user_name }}"
+    mode: "0644"
+  become: true
+  when: setup_config_vimrc | bool
+  tags:
+    - system-setup
+    - system-setup-config
+    - system-setup-config-vimrc
+
+- name: Set system default editor (vim)
+  ansible.builtin.copy:
+    dest: /etc/profile.d/editor.sh
+    content: |
+      export EDITOR=/usr/bin/vim
+    mode: "0644"
+  become: true
+  when: setup_config_default_editor | bool
+  tags:
+    - system-setup
+    - system-setup-config
+    - system-setup-default-vim
+
+- name: Create terminator config directory
+  ansible.builtin.file:
+    path: "/home/{{ setup_user_name }}/.config/terminator"
+    state: directory
+    owner: "{{ setup_user_name }}"
+    group: "{{ setup_user_name }}"
+    mode: "0755"
+  become: true
+  when: setup_config_terminator | bool
+  tags:
+    - system-setup
+    - system-setup-config
+    - system-setup-config-terminator
+
+- name: Deploy Terminator config
+  ansible.builtin.copy:
+    src: terminator_config
+    dest: "/home/{{ setup_user_name }}/.config/terminator/config"
+    owner: "{{ setup_user_name }}"
+    group: "{{ setup_user_name }}"
+    mode: "0644"
+  become: true
+  when: setup_config_terminator | bool
+  tags:
+    - system-setup
+    - system-setup-config
+    - system-setup-config-terminator
+
+- name: Create GTK config directory
+  ansible.builtin.file:
+    path: "/home/{{ setup_user_name }}/.config/gtk-3.0"
+    state: directory
+    owner: "{{ setup_user_name }}"
+    group: "{{ setup_user_name }}"
+    mode: "0755"
+  become: true
+  when: setup_config_terminator | bool
+  tags:
+    - system-setup
+    - system-setup-config
+    - system-setup-config-terminator
+
+- name: Deploy GTK CSS
+  ansible.builtin.copy:
+    src: gtk.css
+    dest: "/home/{{ setup_user_name }}/.config/gtk-3.0/gtk.css"
+    owner: "{{ setup_user_name }}"
+    group: "{{ setup_user_name }}"
+    mode: "0644"
+  become: true
+  when: setup_config_terminator | bool
+  tags:
+    - system-setup
+    - system-setup-config
+    - system-setup-config-terminator
+
+- name: Restart msg
+  ansible.builtin.debug:
+    msg:
+      - "==================================================="
+      - "System setup completed."
+      - "Please restart the system to apply all changes."
+      - "==================================================="
+  tags:
+    - system-setup
+    - system-setup-config

@@ -1,0 +1,33 @@
+################################## General #################################
+# alias top="top -c"
+# alias s="ssh -v"
+alias v="vim"
+# alias vi="vim"
+alias c="clear"
+alias cd..="cd .."
+alias ..="cd .."
+alias ...="cd ../.."
+alias ....="cd ../../.."
+alias .....="cd ../../../.."
+# alias df="df -h"
+# alias du="du -h"
+alias d="dig +short"
+alias h="host"
+alias p8="ping 8.8.8.8"
+alias igrep="grep -i --color=auto"
+alias la="ls -ltrha --color=auto"
+alias clip="xclip -selection c $@"
+alias grep="grep --color=always $@"
+alias mtr="mtr -z --show-ips"
+# alias ip="ip -c=always $@"
+alias ipa="ip -c -br a"
+alias ipr="ip -c -br r"
+# alias lsblk="lsblk -f"
+sshpw='ssh -o PasswordAuthentication=yes -o PreferredAuthentications=password'
+
+################################## Kubernetes ##############################
+# alias k3s="export KUBECONFIG=~/.kube/k3s && echo -e '\n\n\033[32mYou are in K3S environment\033[0m\n\n' && k get node"
+
+################################## Git #####################################
+alias gp='git pull'
+alias gm='git commit -m'%

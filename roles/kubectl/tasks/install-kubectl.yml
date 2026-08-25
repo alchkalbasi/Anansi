@@ -1,0 +1,68 @@
+---
+# install kubectl tasks
+
+- name: Install prerequisite packages
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+    update_cache: true
+  become: true
+  tags:
+    - kubectl
+    - kubectl-install
+
+- name: Create directory for APT keyrings
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+  become: true
+  tags:
+    - kubectl
+    - kubectl-install
+
+- name: Download Kubernetes APT signing key
+  ansible.builtin.get_url:
+    url: "{{ kubectl_repo_gpg_url }}"
+    dest: "/etc/apt/keyrings/{{ kubectl_gpg_file_name }}.asc"
+    mode: '0644'
+    force: true
+  become: true
+  tags:
+    - kubectl
+    - kubectl-install
+
+- name: Add Kubernetes APT repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/{{ kubectl_gpg_file_name }}.asc] {{ kubectl_repo_base_url }} /"
+    state: present
+    filename: kubernetes
+    update_cache: true
+  become: true
+  tags:
+    - kubectl
+    - kubectl-install
+
+- name: Install kubectl package
+  ansible.builtin.apt:
+    name: kubectl
+    state: "{{ kubectl_package_state }}"
+  become: true
+  tags:
+    - kubectl
+    - kubectl-install
+
+- name: Hold kubectl package at current version to prevent accidental upgrades
+  ansible.builtin.dpkg_selections:
+    name: kubectl
+    selection: hold
+  become: true
+  when: kubectl_pin_version | bool
+  tags:
+    - kubectl
+    - kubectl-install
+    - kubectl-install-pin

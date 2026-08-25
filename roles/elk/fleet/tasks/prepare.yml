@@ -1,0 +1,26 @@
+# fleet preparation tasks
+
+- name: Create elk project directory 
+  ansible.builtin.file:
+    path: "{{ project_dir }}"
+    state: directory
+  tags:
+    - project-dir
+
+- name: Create fleet service directory 
+  ansible.builtin.file:
+    path: "{{ service_dir }}"
+    state: directory
+  tags:
+    - fservice-dir
+
+- name: Create fleet data directory 
+  ansible.builtin.file:
+    path: "{{ service_dir }}/fdata"
+    state: directory
+    owner: '1000'
+    group: '1000'
+    mode: '0755'
+    recurse: yes
+  tags:
+    - fdata-dir

@@ -1,0 +1,18 @@
+networks:
+  pubnet:
+    driver: bridge
+  prinet:
+    driver: bridge
+
+volumes:
+  mcp-data:
+services:
+  mcp-server:
+    build: .
+    container_name: ${MCP_CONTAINER_NAME}
+    environment:
+      - PROMETHEUS_URL=${PROMETHEUS_URL}
+      - CLAUDE_API_URL=${CLAUDE_API_URL}
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY}
+    ports:
+      - "127.0.0.1:8000:8000"

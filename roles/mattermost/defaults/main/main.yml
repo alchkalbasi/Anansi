@@ -1,0 +1,45 @@
+---
+service_dir: /opt/services
+mattermost_dir: "{{ service_dir }}/mattermost"
+postgres_dir: "{{ mattermost_dir }}/postgres"
+
+public_net_name: pubnet
+private_net_name: prinet
+
+# compose
+TZ: "IR"
+RESTART_POLICY: "unless-stopped"
+POSTGRES_IMAGE_TAG: "15"
+POSTGRES_DATA_PATH: "{{ postgres_dir }}/volumes/db/var/lib/postgresql/data"
+POSTGRES_DB: "mattermost"
+POSTGRES_PORT: "127.0.0.1:5432"
+MATTERMOST_IMAGE: "mattermost-team-edition"
+MATTERMOST_IMAGE_TAG: "10.5.2"
+MATTERMOST_CONTAINER_READONLY: "true"
+MATTERMOST_PORT: "127.0.0.1:8065"
+MATTERMOST_PUSH_PORT: "127.0.0.1:8067"
+MATTERMOST_INTERNAL_PORT: "8074"
+MATTERMOST_PLUGINS_PORT: "8075"
+MATTERMOST_CONFIG_PATH: "{{ mattermost_dir }}/volumes/config"
+MATTERMOST_DATA_PATH: "{{ mattermost_dir }}/volumes/data"
+MATTERMOST_LOGS_PATH: "{{ mattermost_dir }}/volumes/logs"
+MATTERMOST_PLUGINS_PATH: "{{ mattermost_dir }}/volumes/plugins"
+MATTERMOST_CLIENT_PLUGINS_PATH: "{{ mattermost_dir }}/volumes/client-plugins"
+MATTERMOST_BLEVE_INDEXES_PATH: "{{ mattermost_dir }}/volumes/bleve-indexes"
+MM_SQLSETTINGS_DRIVERNAME: "postgres"
+MM_SQLSETTINGS_DATASOURCE: "postgres://{{ POSTGRES_USER }}:{{ POSTGRES_PASSWORD }}@postgres:5432/{{ POSTGRES_DB }}?sslmode=disable&connect_timeout=10"
+MM_BLEVESETTINGS_INDEXDIR: "/mattermost/bleve-indexes"
+MM_SCHEMA: https
+MM_SERVICESETTINGS_SITEURL: "${{ MM_SCHEMA }}://{{ domain }}"
+MM_PLUGINSETTINGS_ENABLE: "true"
+MM_PLUGINSETTINGS_AUTOMATICPREPACKAGEDPLUGINS: "true"
+MM_PLUGINSETTINGS_ENABLEUPLOADS: "true"
+MM_PLUGINSETTINGS_ENABLEMARKETPLACE: "true"
+MM_PLUGINSETTINGS_REQUIREPLUGINSIGNATURE: "false"
+MM_SERVICESETTINGS_ENABLELOCALMODE: "true"
+MM_SERVICESETTINGS_LOCALMODESOCKETLOCATION: "/var/tmp/mattermost_local.socket"
+
+# traefik labels
+mattermost_hostname: mattermost
+mattermost_entrypoint: web-secure
+mattermost_tls: true

@@ -1,0 +1,135 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for postgres-master
+
+- name: Check if Docker CE and Compose Plugin are installed
+  ansible.builtin.command: "{{ item }}"
+  register: docker_install_check
+  ignore_errors: true
+  changed_when: false
+  loop:
+    - "docker --version"
+    - "docker compose version"
+  tags:
+    - check-docker
+
+- name: Fail if Docker CE is missing
+  ansible.builtin.fail:
+    msg: "CRITICAL: Docker (docker-ce) is not installed on this host. Please install it before running this playbook."
+  when: docker_install_check.results[0].rc != 0
+  tags:
+    - check-docker
+
+- name: Fail if Docker Compose is missing
+  ansible.builtin.fail:
+    msg: "CRITICAL: Docker Compose Plugin is missing. Run 'sudo apt install docker-compose-plugin' to fix."
+  when: docker_install_check.results[1].rc != 0
+  tags:
+    - check-docker
+
+- name: Success message of docker-check task
+  ansible.builtin.debug:
+    msg: "Environment check passed. Docker and Compose are ready!"
+  tags:
+    - check-docker
+
+- name: Creates service directory 
+  ansible.builtin.file:
+    path: "{{ service_dir }}"
+    state: directory
+  tags:
+    - preparing
+
+- name: Create init scripts directory
+  ansible.builtin.file:
+    path: "{{ service_dir }}/init-db"
+    state: directory
+    owner: "999"
+    group: "999"
+    mode: '0755'
+  tags:
+    - preparing
+
+- name: Create WAL archive directory
+  ansible.builtin.file:
+    path: "{{ service_dir }}/wal_archive"
+    state: directory
+    owner: "999"
+    group: "999"
+    mode: '0700'
+  tags:
+    - preparing
+
+- name: Copy the compose file with owner and permissions
+  ansible.builtin.copy:
+    src: compose.yml
+    dest: "{{ service_dir }}/compose.yml"
+  tags:
+  - compose-preparing
+
+- name: Template the .env file to path
+  ansible.builtin.template:
+    src: .env.j2
+    dest: "{{ service_dir }}/.env"
+  notify: Restart Postgres
+  tags:
+  - compose-preparing
+
+- name: Template the replication init script
+  ansible.builtin.template:
+    src: init-replication.sql.j2
+    dest: "{{ service_dir }}/init-db/init-replication.sql"
+    owner: "999"
+    group: "999"
+    mode: '0644'
+  tags:
+    - configuration
+
+- name: Template configuration files
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ service_dir }}/{{ item.dest }}"
+    owner: "999"
+    group: "999"
+    mode: '0644'
+  loop:
+    - { src: 'postgresql.conf.j2', dest: 'postgresql.conf' }
+    - { src: 'pg_hba.conf.j2', dest: 'pg_hba.conf' }
+  notify: Restart Postgres
+  tags:
+  - configuration
+
+- name: Create docker external networks with name
+  docker_network:
+    name: "{{ item }}"
+    driver_options:
+      com.docker.network.bridge.name: "{{ item }}"
+  loop: "{{ docker_networks }}"
+  tags:
+    - docker-networks
+
+- name: Pull Postgres-Master image for project
+  community.docker.docker_compose_v2_pull:
+    project_src: "{{ service_dir }}"
+    policy: missing #pull if only the images doesn't exist locally
+  tags:
+    - pull
+
+- name: Deploy Postgres-Master Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ service_dir }}"
+  register: deployment_result
+  tags:
+    - deploy
+
+- name: Wait for Postgres-Master container healthcheck to be healthy
+  community.docker.docker_container_info:
+    name: "{{ postgres_master_container_name }}"
+  register: postgres_info
+  until: >
+    postgres_info.container.State.Health is defined and
+    postgres_info.container.State.Health.Status == "healthy"
+  retries: 60
+  delay: 5
+  tags:
+    - healthcheck

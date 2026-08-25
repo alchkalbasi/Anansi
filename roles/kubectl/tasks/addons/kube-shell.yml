@@ -1,0 +1,64 @@
+---
+# kube-shell addon tasks
+
+- name: Install Python tooling for kube-shell
+  ansible.builtin.apt:
+    name:
+      - python3-pip
+      - python3-venv
+    state: present
+  become: true
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kube-shell
+
+- name: Install kube-shell via pip
+  ansible.builtin.pip:
+    name: kube-shell
+    state: present
+    virtualenv: "{{ kubectl_kube_shell_venv_path }}"
+    virtualenv_command: /usr/bin/python3 -m venv
+  become: true
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kube-shell
+
+- name: Install kube-shell command link
+  ansible.builtin.file:
+    src: "{{ kubectl_kube_shell_venv_path }}/bin/kube-shell"
+    dest: "{{ kubectl_kube_shell_command_path }}"
+    state: link
+    force: true
+    mode: '0755'
+  become: true
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kube-shell
+
+- name: Verify kube-shell command was installed
+  ansible.builtin.stat:
+    path: "{{ kubectl_kube_shell_command_path }}"
+    follow: true
+  register: kubectl_kube_shell_command
+  become: true
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kube-shell
+
+- name: Assert kube-shell command is executable
+  ansible.builtin.assert:
+    that:
+      - kubectl_kube_shell_command.stat.exists
+      - kubectl_kube_shell_command.stat.isreg
+      - kubectl_kube_shell_command.stat.executable
+    fail_msg: >-
+      kube-shell was installed into {{ kubectl_kube_shell_venv_path }}, but
+      {{ kubectl_kube_shell_command_path }} is not an executable file.
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kube-shell

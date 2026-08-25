@@ -1,0 +1,172 @@
+############
+# test env #
+############
+Host stage-devops
+    Hostname 188.121.103.200
+    User debian
+    Port 22
+
+############
+# Personal #
+############
+Host macos-mizban
+    Hostname 192.168.254.79
+    User ali
+    Port 22
+
+##########
+# Mizban #
+##########
+Host clean-server-respina
+    Hostname 77.237.70.39
+    User root
+    Port 22
+
+Host core-prod-respina
+    Hostname 77.237.70.42
+    Port 22
+    User root
+
+Host core-germany
+    Hostname 91.107.241.48
+    User root
+
+Host nginx-cip
+    Hostname 94.101.177.209
+    Port 4578
+    User debian
+
+Host nginx-cic
+    Hostname 37.32.12.209
+    Port 4578
+    User debian
+
+Host nginx-it4
+    Hostname 45.138.135.164
+    Port 4578
+	User root
+
+Host nginx-td
+	Hostname 193.111.76.75
+	Port 4578
+	User debian
+
+Host nginx-ctc
+	Hostname 45.136.5.162
+	Port 4578
+	User debian
+
+Host nginx-ctp
+	Hostname 45.136.5.106
+	Port 4578
+	User debian
+
+Host panel-stage-respina
+    Hostname 77.237.70.44
+    Port 4578
+    User debian
+
+Host panel-prod-respina
+    Hostname 77.237.70.45
+    Port 4578
+    User debian
+
+Host mattermost-respina
+    Hostname 77.237.70.36
+    Port 4578
+    User debian
+
+Host core-stage-respina
+    Hostname 77.237.70.43
+    Port 4578
+    User debian
+
+Host jira-conf-respina
+    Hostname 77.237.70.196
+    Port 4578
+    User debian
+
+Host gitlab-respina
+    Hostname 77.237.70.194
+    Port 4578
+    User debian
+
+Host runner-respina
+    Hostname 172.16.154.6
+    Port 4578
+    User debian
+
+Host repo-respina
+    Hostname 77.237.70.197
+    port 4578
+    User debian
+
+Host prom-respina
+    Hostname 172.16.154.20
+    Port 4578
+    User debian
+
+Host grafana-respina
+    Hostname 77.237.70.198
+    Port 4578
+    User debian
+
+Host loki-respina
+    Hostname 172.16.154.23
+    Port 4578
+    User debian
+
+Host postgres-mqtt
+    Hostname 172.16.154.9
+    Port 4578
+    User debian
+
+Host mqtt
+    Hostname 77.237.70.195
+    Port 22
+    User debian
+
+Host mimir-respina
+    Hostname 172.16.154.22
+    Port 4578
+    User debian
+
+Host sentry-respina
+    Hostname 77.237.70.37
+    User root
+    Port 9510
+
+Host switch-stage-respina
+    Hostname 77.237.70.39
+    User root
+    Port 22
+
+Host switch-prod-respina
+    Hostname 77.237.70.40
+    User root
+    Port 22
+
+Host postgres-master-respina
+    Hostname 77.237.70.38
+    User debian
+    Port 22
+
+Host postgres-slave-respina
+    Hostname 172.16.154.29
+    User debian
+    Port 22
+
+Host mailserver-respina
+    Hostname 77.237.70.35
+    User root
+    Port 55123
+
+Host backup-arvan
+    Hostname 188.121.105.160
+    User debian
+    Port 22
+
+Host waggy-back
+    Hostname 188.121.100.63
+    User debian
+    Port 22

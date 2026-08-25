@@ -1,0 +1,17 @@
+# fleet configuration tasks
+
+- name: Template the fleet .env file to path
+  ansible.builtin.template:
+    src: .env.j2
+    dest: "{{ service_dir }}/.env"
+    mode: '0755'
+  tags:
+    - fenv-file
+
+- name: Copy the fleet compose file with owner and permissions
+  ansible.builtin.copy:
+    src: compose.yml
+    dest: "{{ service_dir }}/compose.yml"
+    mode: '0755'
+  tags:
+    - fcompose-file

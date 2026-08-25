@@ -1,0 +1,14 @@
+# Gitlab backup tasks
+
+- name: Creates backup directory
+  ansible.builtin.file:
+    path: "{{ backups_dir }}"
+    state: directory
+
+- name: Template backup script to path
+  ansible.builtin.template:
+    src: gitlab_backup.sh.j2
+    dest: "{{ backups_dir }}/gitlab_backup.sh"
+    owner: root
+    group: root
+    mode: '0744'

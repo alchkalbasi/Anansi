@@ -1,0 +1,25 @@
+# kibana deployment tasks
+
+- name: Create docker external networks with name
+  docker_network:
+    name: "{{ item }}"
+    driver_options:
+      com.docker.network.bridge.name: "{{ item }}"
+  loop: "{{ docker_networks }}"
+  tags:
+    - docker-networks
+
+- name: Pull kibana image for project
+  community.docker.docker_compose_v2_pull:
+    project_src: "{{ service_dir }}"
+    policy: missing #pull if only the images doesn't exist locally
+  tags:
+    - kpull
+
+- name: Deploy kibana via Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ service_dir }}"
+    recreate: always  # Forces container recreation even if no changes found
+    state: present    # Ensures they are running
+  tags:
+    - kdeploy

@@ -1,0 +1,52 @@
+
+networks:
+  prinet:
+    external: true
+    name: ${PRIVATE_NETWORK}
+  pubnet:
+    external: true
+    name: ${PUBLIC_NETWORK}
+
+volumes:
+  influxdb-data:
+    name: influxdb_data
+
+services:
+  influxdb:
+    image: docker.arvancloud.ir/influxdb:latest
+    #influxdb:${INFLUXDB_IMAGE_TAG}
+    container_name: ${INFLUXDB_CONTAINER_NAME}
+    restart: ${RESTART_POLICY}
+    ports:
+      - "${INFLUXDB_PORT}:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=${DOCKER_INFLUXDB_INIT_MODE}
+      - DOCKER_INFLUXDB_INIT_USERNAME=${DOCKER_INFLUXDB_INIT_USERNAME}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${DOCKER_INFLUXDB_INIT_PASSWORD}
+      - DOCKER_INFLUXDB_INIT_ORG=${DOCKER_INFLUXDB_INIT_ORG}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${DOCKER_INFLUXDB_INIT_BUCKET}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${DOCKER_INFLUXDB_INIT_ADMIN_TOKEN}
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+      - ./configs:/etc/influxdb2
+    networks:
+      - prinet
+      - pubnet
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: ${INFLUXDB_MEMORY_LIMIT}
+        reservations:
+          memory: ${INFLUXDB_MEMORY_RESERVATION}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "${INFLUXDB_MAX_LOG_SIZE}"
+        max-file: "${INFLUXDB_MAX_LOG_FILE}"
+

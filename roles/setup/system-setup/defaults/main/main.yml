@@ -1,0 +1,129 @@
+---
+# defaults file for system-setup
+
+# userconf.yml vars
+setup_user_create: true
+setup_user_passwordless_sudo: true
+setup_user_workspace_dir: Workspace
+setup_user_fix_home_permissions: true
+
+# apt.yml vars
+setup_apt_create_custom_repo: true
+setup_apt_install_dependencies: true
+# setup_apt_install_xray: false
+setup_apt_full_upgrade: true
+
+# ssh.yml vars
+setup_ssh_generate_keys: true
+setup_ssh_key_name: ed25519
+setup_ssh_key_type: ed25519
+setup_ssh_key_comment: "{{ setup_user_name }}@{{ setup_ssh_hostname }}"
+setup_ssh_copy_config: true
+setup_ssh_auth_file: true
+setup_ssh_config_file: true
+
+# tools.yml vars
+setup_tools_install_base: true
+setup_tools_install_network: true
+setup_tools_install_development: true
+setup_tools_install_desktop: true
+setup_tools_install_terminal: true
+setup_tools_apt_cleanup: true
+setup_tools_base_packages:
+  - curl
+  - git
+  - tmux
+  - tree
+  - aria2
+  - aptitude
+  - xclip
+  - ca-certificates
+  - gnupg
+  - p7zip-full
+  - unrar-free
+  - ncal
+  - jcal
+  - certbot
+  - python3-certbot-nginx
+setup_tools_network_packages:
+  - net-tools
+  - dnsutils
+  - traceroute
+  - mtr
+  - nmap
+  - tcpdump
+  - iptables
+  - iproute2
+  - nload
+  - bmon
+  - whois
+  - iputils-ping
+  - ethtool
+  - socat
+  - netcat-openbsd
+  - wget
+  - rsync
+  - openssh-client
+  - openssh-server
+setup_tools_development_packages:
+  - python3-pip
+  - python3-venv
+  - python3-full
+  - ipython3
+  - gcc
+  - make
+  - perl
+  - nodejs
+  - vim
+setup_tools_desktop_packages:
+  - flameshot
+  - kazam
+  - vlc
+  - remmina
+  - keepassxc
+  - gnome-tweaks
+  - gnome-shell-extension-manager
+  - xournalpp
+setup_tools_terminal_packages:
+  - terminator
+  - zsh
+  - zsh-autosuggestions
+  - zsh-syntax-highlighting
+
+# appinstall.yml vars
+setup_apps_install_snap: true
+setup_apps_install_custom: true
+setup_apps_install_oh_my_zsh: true
+setup_apps_install_zsh_plugins: true
+setup_apps_install_vim_plugins: true
+setup_apps_install_chrome: true 
+setup_apps_install_nekoray: true
+setup_apps_install_winbox: true
+setup_apps_oh_my_zsh_url: https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh
+setup_apps_zsh_autosuggestions_url: https://github.com/zsh-users/zsh-autosuggestions.git
+setup_apps_zsh_autosuggestions_version: v0.7.1
+setup_apps_zsh_syntax_highlighting_url: https://github.com/zsh-users/zsh-syntax-highlighting.git
+setup_apps_zsh_syntax_highlighting_version: 0.8.0
+setup_apps_vim_plug_url: https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+setup_apps_custom_snap:
+  - name: telegram-desktop
+  - name: bitwarden
+  - name: code
+    classic: true
+  - name: drawio
+  # - name: mattermost-desktop
+  # - name: pycharm
+  #   classic: true
+setup_apps_url_chrome: https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+setup_apps_nekoray_url: https://github.com/MatsuriDayo/nekoray/releases/download/3.26/nekoray-3.26-2023-12-09-debian-x64.deb
+setup_apps_winbox_url: https://download.mikrotik.com/routeros/winbox/4.1/WinBox_Linux.zip
+
+
+# config.yml vars
+setup_config_set_zsh_default: true
+setup_config_zshrc: true
+setup_config_zsh_aliases: true
+setup_config_vimrc: true
+setup_config_default_editor: true
+setup_config_terminator: true
+setup_config_zsh_path: /usr/bin/zsh

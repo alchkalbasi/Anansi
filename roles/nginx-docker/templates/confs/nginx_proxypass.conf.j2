@@ -1,0 +1,105 @@
+user  {{ nginx_conf_user }};
+worker_processes  {{ nginx_conf_worker_processes }};
+
+error_log  {{ nginx_conf_error_log_path }} {{ nginx_conf_error_level }};
+pid        /run/nginx.pid;
+
+
+events {
+    worker_connections  {{ nginx_conf_worker_connections }};
+}
+
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    {{ nginx_conf_log_format | indent(4) }};
+
+    access_log  {{ nginx_conf_access_log }}  {{ nginx_conf_log_name }};
+
+    sendfile {{ 'on' if nginx_conf_sendfile else 'off' }};
+    tcp_nopush {{ 'on' if nginx_conf_tcp_nopush | default(true) else 'off' }};
+
+    keepalive_timeout  {{ nginx_conf_keepalive_timeout }};
+
+    {% if nginx_conf_enable_rate_limit | default(false) %}
+    limit_req_zone $binary_remote_addr zone=iplimit:{{ nginx_conf_limit_req_size | default('10m') }} rate={{ nginx_conf_limit_req_rate | default('10r/s') }};
+    {% endif %}
+
+    {% if nginx_conf_enable_caching | default(false) %}
+    proxy_cache_path {{ nginx_conf_proxy_cache_path }} levels=1:2 keys_zone=server_cache:{{ nginx_conf_cache_size | default('10m') }} max_size={{ nginx_conf_cache_max | default('1g') }} inactive={{ nginx_conf_cache_inactive }} use_temp_path={{ nginx_conf_cache_use_temp_path }};
+    {% endif %}
+
+    gzip {{ 'on' if nginx_conf_enable_gzip | default(false) else 'off' }};
+    {% if nginx_conf_enable_gzip | default(false) %}
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level {{ nginx_conf_gzip_level | default(6) }};
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+    {% endif %}
+
+    client_max_body_size {{ nginx_conf_client_max_body | default('16M') }};
+    server_tokens off;
+
+    # Redirect HTTP to HTTPS
+    server {
+        listen 80;
+        server_name {{ subdomain }}.{{ domain }};
+        return 301 https://$host$request_uri;
+    }
+
+    server {
+        listen 443 ssl;
+        server_name   {{ subdomain }}.{{ domain }};
+
+        # Certificate Paths (Mapped via Docker volumes)
+        ssl_certificate     {{ nginx_conf_ssl_key_public_path }};
+        ssl_certificate_key {{ nginx_conf_ssl_key_private_path }};
+
+        # SSL Security
+        ssl_protocols       TLSv1.2 TLSv1.3;
+        ssl_session_cache  {{ nginx_conf_ssl_session_cache }};
+        ssl_session_timeout {{ nginx_conf_ssl_session_timeout }};
+
+        {% if nginx_conf_enable_client_cache | default(false) %}
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|otf)$ {
+            proxy_pass http://{{ nginx_conf_proxy_pass }};
+            expires {{ nginx_conf_client_cache_duration | default('7d') }};
+            add_header Cache-Control "public, no-transform";
+            
+            # Standard Proxy Headers
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        {% endif %}
+
+        location / {
+            {% if nginx_conf_enable_rate_limit | default(false) %}
+            limit_req zone=iplimit burst={{ nginx_conf_limit_burst | default(20) }} nodelay;
+            {% endif %}
+
+            # Apply Cache if enabled
+            {% if nginx_conf_enable_caching | default(false) %}
+            proxy_cache server_cache;
+            proxy_cache_valid 200 302 {{ nginx_conf_cache_valid | default('10m') }};
+            add_header X-Cache-Status $upstream_cache_status;
+            {% endif %}
+
+            proxy_pass http://{{ nginx_conf_proxy_pass }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            # WebSocket Support
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+
+        }
+
+    }
+}

@@ -1,0 +1,6 @@
+---
+- name: Unarchive a file
+  ansible.builtin.unarchive:
+    src: "{{ dest_download}}"
+    dest: "{{ dest_unarchive }}"
+    remote_src: yes

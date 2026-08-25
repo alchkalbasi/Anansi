@@ -1,0 +1,22 @@
+# Runner configuration tasks
+
+- name: Copy compose file with owner and permissions
+  ansible.builtin.copy:
+    src: compose.yml
+    dest: "{{ service_dir }}/compose.yml"
+  tags:
+    - compose-file
+
+- name: Template .env file to path
+  ansible.builtin.template:
+    src: .env.j2
+    dest: "{{ service_dir }}/.env"
+  tags:
+    - env-file
+
+- name: Template config file to path
+  ansible.builtin.template:
+    src: config.toml.j2
+    dest: "{{ service_dir }}/configs/config.toml"
+  tags:
+    - config-file

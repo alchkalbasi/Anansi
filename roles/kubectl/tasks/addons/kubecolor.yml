@@ -1,0 +1,104 @@
+---
+# kubecolor addon tasks
+
+- name: Set kubecolor architecture fact
+  ansible.builtin.set_fact:
+    kubectl_kubecolor_arch: "{{ kubectl_arch_map[ansible_facts['architecture']] | default('amd64') }}"
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kubecolor
+
+- name: Set kubecolor package filename fact
+  ansible.builtin.set_fact:
+    kubectl_kubecolor_deb: "kubecolor_{{ kubectl_kubecolor_version }}_linux_{{ kubectl_kubecolor_arch }}.deb"
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kubecolor
+
+- name: Download kubecolor package
+  ansible.builtin.get_url:
+    url: "https://github.com/kubecolor/kubecolor/releases/download/v{{ kubectl_kubecolor_version }}/{{ kubectl_kubecolor_deb }}"
+    dest: "/tmp/{{ kubectl_kubecolor_deb }}"
+    mode: '0644'
+  become: true
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kubecolor
+
+- name: Install kubecolor package
+  ansible.builtin.apt:
+    deb: "/tmp/{{ kubectl_kubecolor_deb }}"
+  become: true
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kubecolor
+
+- name: Remove downloaded kubecolor package file
+  ansible.builtin.file:
+    path: "/tmp/{{ kubectl_kubecolor_deb }}"
+    state: absent
+  become: true
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kubecolor
+
+- name: Look up kubecolor users' default shells
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ item }}"
+  register: kubectl_kubecolor_user_accounts
+  loop: "{{ kubectl_target_users }}"
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kubecolor
+
+- name: Validate kubecolor users' default shells
+  ansible.builtin.assert:
+    that:
+      - (item.ansible_facts.getent_passwd[item.item][5] | basename) in ['bash', 'zsh']
+    fail_msg: >-
+      The default shell for {{ item.item }} is
+      {{ item.ansible_facts.getent_passwd[item.item][5] }}; only bash and zsh
+      are supported for kubecolor shell integration.
+  loop: "{{ kubectl_kubecolor_user_accounts.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kubecolor
+
+- name: Configure kubecolor alias for each user's default shell
+  ansible.builtin.blockinfile:
+    path: "{{ kubectl_kubecolor_user_passwd_entry[4] }}/.{{ kubectl_kubecolor_user_shell }}rc"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - kubecolor alias"
+    create: true
+    owner: "{{ item.item }}"
+    mode: '0644'
+    block: |
+      alias kubecolorful='kubecolor --force-colors'
+      {% if kubectl_kubecolor_replace_kubectl %}
+      alias kubectl=kubecolor
+      {% if kubectl_kubecolor_user_shell == 'zsh' %}
+      compdef kubecolor=kubectl
+      {% else %}
+      complete -F __start_kubectl kubecolor
+      {% endif %}
+      {% endif %}
+  become: true
+  loop: "{{ kubectl_kubecolor_user_accounts.results }}"
+  loop_control:
+    label: "{{ item.item }} ({{ kubectl_kubecolor_user_shell }})"
+  vars:
+    kubectl_kubecolor_user_passwd_entry: "{{ item.ansible_facts.getent_passwd[item.item] }}"
+    kubectl_kubecolor_user_shell: "{{ kubectl_kubecolor_user_passwd_entry[5] | basename }}"
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kubecolor

@@ -1,0 +1,25 @@
+# elasticsearch configuration tasks
+
+- name: Template the elasticsearch .env file to path
+  ansible.builtin.template:
+    src: .env.j2
+    dest: "{{ service_dir }}/.env"
+    mode: '0755'
+  tags:
+    - eenv-file
+
+- name: Copy the elasticsearch compose file with owner and permissions
+  ansible.builtin.copy:
+    src: compose.yml
+    dest: "{{ service_dir }}/compose.yml"
+    mode: '0755'
+  tags:
+    - ecompose-file
+
+- name: Copy the elasticsearch healthcheck script with owner and permissions
+  ansible.builtin.copy:
+    src: elastic-healthcheck.sh
+    dest: "{{ service_dir }}/elastic-healthcheck.sh"
+    mode: '0755'
+  tags:
+    - ehealth-file

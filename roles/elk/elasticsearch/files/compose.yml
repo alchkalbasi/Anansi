@@ -1,0 +1,58 @@
+networks:
+  prinet:
+    external: true
+    name: ${PRIVATE_NETWORK}
+  pubnet:
+    external: true
+    name: ${PUBLIC_NETWORK}
+
+services:
+  elasticsearch:
+    image: dhi.io/elasticsearch:${ELASTIC_IMAGE_TAG}
+    container_name: ${ELASTIC_CONTAINER_NAME}
+    restart: ${RESTART_POLICY}
+    environment:
+      ES_JAVA_OPTS: "-Xms${MINIMUM_HEAP_SIZE} -Xmx${MAXIMUM_HEAP_SIZE}"
+      bootstrap.memory_lock: "${BOOTSTRAP_MEMORY_LOCK}"
+      node.name: ${ELASTIC_NODE_NAME}
+      cluster.name: ${ELASTIC_CLUSTER_NAME}
+      discovery.type: ${ELASTIC_DISCOVERY_TYPE}
+      network.host: ${ELASTIC_NETWORK_TYPE}
+      http.port: ${ELASTIC_HTTP_PORT}
+      http.cors.enabled: "${ELASTIC_CORS_ENABLED}"
+      http.cors.allow-origin: ${ELASTIC_CORS_ALLOW_ORIGINS}
+      xpack.security.enabled: "${ELASTIC_XPACK_SECURITY_ENABLED}"
+      xpack.security.authc.api_key.enabled: "${ELASTIC_XPACK_SECURITY_AUTHC_API_KEY_ENABLED}"
+      xpack.license.self_generated.type: ${ELASTIC_XPACK_LICENSE_SELF_GENERATED_TYPE}
+      xpack.monitoring.collection.enabled: "${ELASTIC_XPACK_MONITORING_COLLECTION_ENABLED}"
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+      # Prevents ES from locking up if disk space gets low (useful for small VMs)
+      cluster.routing.allocation.disk.threshold_enabled: "${ELASTIC_CLUSTER_ROUTING_ALLOCATION_DISK_THRESHOLD_ENABLED}"
+      cluster.routing.allocation.disk.watermark.low: "${ELASTIC_CLUSTER_ROUTING_ALLOCATION_DISK_WATERMARK_LOW}"
+      cluster.routing.allocation.disk.watermark.high: "${ELASTIC_CLUSTER_ROUTING_ALLOCATION_DISK_WATERMARK_HIGH}"
+    volumes:
+      - ./edata:/usr/share/elasticsearch/data
+      - ./elastic-healthcheck.sh:/usr/share/elasticsearch/health-check.sh
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    networks:
+      - prinet
+      - pubnet
+    healthcheck:
+      test: [ "CMD", "sh",  "/usr/share/elasticsearch/health-check.sh" ]
+      interval: 30s
+      timeout: 3s
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=pubnet
+      - traefik.http.routers.elasticsearch.entrypoints=web
+      - traefik.http.routers.elasticsearch.rule=Host(`${ELASTIC_SUB_DOMAIN}.${MAIN_DOMAIN}`)
+      - traefik.http.routers.elasticsearch.middlewares=https-redirect
+      - traefik.http.middlewares.https-redirect.redirectscheme.scheme=https
+      - traefik.http.routers.elasticsearch-secure.entrypoints=web-secure
+      - traefik.http.routers.elasticsearch-secure.rule=Host(`${ELASTIC_SUB_DOMAIN}.${MAIN_DOMAIN}`)
+      - traefik.http.routers.elasticsearch-secure.tls=true
+      - traefik.http.routers.elasticsearch-secure.tls.certresolver=le
+      - traefik.http.services.elasticsearch.loadbalancer.server.port=9200

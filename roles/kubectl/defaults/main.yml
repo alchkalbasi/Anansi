@@ -1,0 +1,72 @@
+---
+# defaults file for kubectl
+
+# Linux users to configure kubectl shell integration (aliases, completion,
+# Krew, kube-ps1, ...) for.
+kubectl_target_users: ['debian']
+
+# --- Core installation ---
+
+# Kubernetes minor version whose apt repo (pkgs.k8s.io) kubectl is installed
+# from. Bump this to move to a newer kubectl minor release.
+kubectl_k8s_minor_version: "1.36"
+
+kubectl_repo_base_url: "https://pkgs.k8s.io/core:/stable:/v{{ kubectl_k8s_minor_version }}/deb/"
+kubectl_repo_gpg_url: "{{ kubectl_repo_base_url }}Release.key"
+kubectl_gpg_file_name: kubernetes-apt-keyring
+
+kubectl_package_state: present
+
+kubectl_pin_version: true
+
+# Shell configs
+
+kubectl_bash_completion_enable: true
+
+kubectl_alias_name: k
+
+kubectl_extra_aliases:
+  kg: "kubectl get"
+  klo: "kubectl logs -f"
+
+# Add-ons
+
+kubectl_fzf_enable: true
+
+kubectl_krew_enable: true
+kubectl_krew_version: v0.5.0
+kubectl_krew_plugins:
+  - ctx
+  - ns
+  - tree
+  - neat
+  - score
+  - deprecations
+  - df-pv
+  - images
+
+# Requires kubectl_krew_enable, since it aliases the ctx/ns Krew plugins.
+kubectl_kubectx_kubens_aliases_enable: true
+
+kubectl_kubecolor_enable: true
+kubectl_kubecolor_version: "0.6.0"
+# When true, `kubectl` itself is aliased to kubecolor instead of just adding
+# a separate `kubecolor` command.
+kubectl_kubecolor_replace_kubectl: false
+
+# kubeval is unmaintained upstream (no arm64 build); it is still installed
+# for x86_64 hosts when enabled.
+kubectl_kubeval_enable: true
+kubectl_kubeval_version: v0.16.1
+
+kubectl_kail_enable: true
+kubectl_kail_version: v0.17.4
+kubectl_kail_install_dir: /usr/local/bin
+
+kubectl_kube_shell_enable: true
+kubectl_kube_shell_venv_path: /opt/kube-shell/venv
+kubectl_kube_shell_command_path: /usr/local/bin/kube-shell
+
+# Only takes effect for users that already have Oh My Zsh installed
+# (~/.oh-my-zsh); otherwise it is silently skipped for that user.
+kubectl_kube_ps1_enable: true

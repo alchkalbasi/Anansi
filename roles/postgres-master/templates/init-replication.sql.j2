@@ -1,0 +1,30 @@
+-- Create a dedicated replication user
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '{{ postgres_replication_user }}') THEN
+        CREATE USER {{ postgres_replication_user }} WITH REPLICATION LOGIN PASSWORD '{{ postgres_replication_password }}';
+    END IF;
+END
+$$;
+
+-- Create the Physical Replication Slot
+-- This ensures the Master starts holding WAL logs for the Slave immediately
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_replication_slots WHERE slot_name = 'slave_slot') THEN
+        PERFORM pg_create_physical_replication_slot('slave_slot');
+    END IF;
+END
+$$;
+
+-- For Exporter
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '{{ postgres_exporter_user }}') THEN
+        CREATE USER {{ postgres_exporter_user }} WITH PASSWORD '{{ postgres_exporter_password }}';
+    END IF;
+END
+$$;
+
+ALTER USER {{ postgres_exporter_user }} SET SEARCH_PATH TO postgres,pg_catalog;
+GRANT pg_monitor TO {{ postgres_exporter_user }};

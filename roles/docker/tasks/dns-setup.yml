@@ -1,0 +1,49 @@
+---
+# DNS setup tasks
+
+- name: Check if /etc/resolv.conf exists
+  become: true
+  ansible.builtin.stat:
+    path: /etc/resolv.conf
+  register: docker_resolv_conf
+  tags:
+    - docker
+    - docker-set-dns
+
+- name: Backup existing resolv.conf
+  become: true
+  ansible.builtin.copy:
+    src: /etc/resolv.conf
+    dest: /etc/resolv.conf.back
+    remote_src: true
+    force: false
+    owner: root
+    group: root
+    mode: "0644"
+  when: docker_resolv_conf.stat.exists
+  tags:
+    - docker
+    - docker-set-dns
+
+- name: Remove original resolv.conf
+  become: true
+  ansible.builtin.file:
+    path: /etc/resolv.conf
+    state: absent
+  when: docker_resolv_conf.stat.exists
+  tags:
+    - docker
+    - docker-set-dns
+
+- name: Deploy resolv configuration
+  become: true
+  ansible.builtin.template:
+    src: resolved.conf.j2
+    dest: /etc/resolv.conf
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  tags:
+    - docker
+    - docker-set-dns

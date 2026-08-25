@@ -1,0 +1,54 @@
+networks:
+  prinet:
+    external: true
+    name: ${PRIVATE_NETWORK}
+  pubnet:
+    external: true
+    name: ${PUBLIC_NETWORK}
+
+services:
+  kibana:
+    image: elastic/kibana:${KIBANA_IMAGE_TAG}
+    container_name: ${KIBANA_CONTAINER_NAME}
+    restart: ${RESTART_POLICY}
+    environment:
+      - "SERVERNAME=${KIBANA_SERVER_NAME}"
+      - "ELASTIC_PUBLIC_HOSTNAME=https://${ELASTIC_SUBDOMAIN}.${MAIN_DOMAIN}"
+      - "ELASTICSEARCH_HOSTNAME=${ELASTIC_HOSTNAME}"
+      - "ELASTICSEARCH_USERNAME=${ELASTIC_USERNAME}"
+      - "ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}"
+      - "KIBANA_SERVER_PUBLIC_BASE_URL=${KIBANA_PUBLIC_URL}"
+      - "MONITORING_UI_CONTAINER_ELASTICSEARCH_ENABLED=${KIBANA_MONITORING_UI_CONTAINER_ELASTICSEARCH_ENABLED}"
+      - "XPACK_FLEET_ENABLED=${KIBANA_XPACK_FLEET_ENABLED}"
+      - "XPACK_FLEET_AGENTS_ENABLED=${KIBANA_XPACK_FLEET_AGENTS_ENABLED}"
+      - "XPACK_FLEET_AGENTS_ELASTICSEARCH_HOST=https://${ELASTIC_SUBDOMAIN}.${MAIN_DOMAIN}"
+      - "XPACK_FLEET_AGENTS_FLEET_SERVER_HOSTS=[\"${KIBANA_XPACK_FLEET_AGENTS_FLEET_SERVER_HOSTS}\"]"
+      - "XPACK_FLEET_AGENTS_TLSCHECKDISABLED=${KIBANA_XPACK_FLEET_AGENTS_TLSCHECKDISABLED}"
+      - "XPACK_SECURITY_ENCRYPTIONKEY=${KIBANA_XPACK_SECURITY_ENCRYPTIONKEY}"
+      - "XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=${KIBANA_XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY}"
+      - "XPACK_REPORTING_ENCRYPTIONKEY=${KIBANA_XPACK_REPORTING_ENCRYPTIONKEY}"
+    volumes:
+      - ./kdata:/usr/share/kibana/data
+    deploy:
+      resources:
+        limits:
+          cpus: '${KIBANA_MAX_CPU_CORE}'
+          memory: ${KIBANA_MAX_MEMORY}
+        reservations:
+          memory: ${KIBANA_MEMORY_RESERVED}
+    networks:
+      - pubnet
+      - prinet
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=pubnet"
+      - "traefik.http.routers.kibana.entrypoints=web"
+      - "traefik.http.routers.kibana.rule=Host(`${KIBANA_SUBDOMAIN}.${MAIN_DOMAIN}`)"
+      - "traefik.http.routers.kibana.middlewares=https-redirect"
+      - "traefik.http.middlewares.https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.kibana-secure.entrypoints=web-secure"
+      - "traefik.http.routers.kibana-secure.rule=Host(`${KIBANA_SUBDOMAIN}.${MAIN_DOMAIN}`)"
+      - "traefik.http.routers.kibana-secure.tls=true"
+      - "traefik.http.routers.kibana-secure.tls.options=default"
+      - "traefik.http.routers.kibana-secure.tls.certresolver=le"
+      - "traefik.http.services.kibana.loadbalancer.server.port=5601"

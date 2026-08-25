@@ -1,0 +1,16 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for 3x-ui
+
+project_dir: /opt/services
+service_dir: "{{ project_dir }}/3x-ui"
+
+# .env vars
+docker_networks:
+  - prinet # private network
+  - pubnet # public network
+xui_docker_image: ghcr.io/mhsanaei/3x-ui:v3.2.8
+xui_restart_policy: unless-stopped
+xui_container_name: xui
+xui_log_level: info
+xui_enable_fail2ban: true

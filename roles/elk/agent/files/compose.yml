@@ -1,0 +1,34 @@
+networks:
+  prinet:
+    external: true
+    name: ${PRIVATE_NETWORK}
+  pubnet:
+    external: true
+    name: ${PUBLIC_NETWORK}
+
+services:
+  elastic-agent:
+    image: elastic/elastic-agent:${AGENT_IMAGE_TAG}
+    container_name: ${AGENT_CONTAINER_NAME}
+    restart: ${RESTART_POLICY}
+    user: root 
+    environment:
+      - FLEET_ENROLL=1
+      - FLEET_URL=${FLEET_URL}
+      - FLEET_ENROLLMENT_TOKEN=${ENROLLMENT_TOKEN}
+      # If your Traefik certs are self-signed or have chain issues, 
+      # uncomment the line below for testing:
+      # - FLEET_INSECURE=true 
+    volumes:
+      # PERSISTENT STATE: Prevents re-enrollment loops and duplicate logs
+      - ./adata:/usr/share/elastic-agent/state
+      # MONITORING TARGETS:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/log:/var/log:ro
+      - /proc:/hostfs/proc:ro
+      - /sys/fs/cgroup:/hostfs/sys/fs/cgroup:ro
+      - /:/hostfs:ro
+      - /var/log/journal:/var/log/journal:ro
+      - /run/systemd/journal:/run/systemd/journal:ro
+    networks:
+      - prinet

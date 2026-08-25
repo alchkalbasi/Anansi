@@ -1,0 +1,92 @@
+services:
+  postgres:
+    image: postgres:${POSTGRES_IMAGE_TAG}
+    container_name: postgres
+    restart: ${RESTART_POLICY}
+    networks:
+      - prinet
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 100
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql
+    volumes:
+      - ${POSTGRES_DATA_PATH}:/var/lib/postgresql/data
+    environment:
+      - TZ=${TZ}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+
+  mattermost:
+    depends_on:
+      - postgres
+    image: mattermost/${MATTERMOST_IMAGE}:${MATTERMOST_IMAGE_TAG}
+    container_name: mattermost
+    restart: ${RESTART_POLICY}
+    ports:
+      - "${MATTERMOST_PORT}:8065" # Main web app
+      - "${MATTERMOST_PUSH_PORT}:8067"   # Push notifications
+      - "${MATTERMOST_INTERNAL_PORT}:8074"   # gRPC internal API
+      - "${MATTERMOST_PLUGINS_PORT}:8075"   # gRPC plugins API
+    networks:
+      - prinet
+      - pubnet
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 200
+    read_only: ${MATTERMOST_CONTAINER_READONLY}
+    tmpfs:
+      - /tmp
+      - /var/tmp
+    volumes:
+      - ${MATTERMOST_CONFIG_PATH}:/mattermost/config:rw
+      - ${MATTERMOST_DATA_PATH}:/mattermost/data:rw
+      - ${MATTERMOST_LOGS_PATH}:/mattermost/logs:rw
+      - ${MATTERMOST_PLUGINS_PATH}:/mattermost/plugins:rw
+      - ${MATTERMOST_CLIENT_PLUGINS_PATH}:/mattermost/client/plugins:rw
+      - ${MATTERMOST_BLEVE_INDEXES_PATH}:/mattermost/bleve-indexes:rw
+    environment:
+      - TZ=${TZ}
+      - MM_SQLSETTINGS_DRIVERNAME=${MM_SQLSETTINGS_DRIVERNAME}
+      - MM_SQLSETTINGS_DATASOURCE=${MM_SQLSETTINGS_DATASOURCE}
+      - MM_BLEVESETTINGS_INDEXDIR=${MM_BLEVESETTINGS_INDEXDIR}
+      - MM_SERVICESETTINGS_SITEURL=${MM_SERVICESETTINGS_SITEURL}
+      # plugins
+      - MM_PLUGINSETTINGS_ENABLE=${MM_PLUGINSETTINGS_ENABLE}
+      - MM_PLUGINSETTINGS_ENABLEMARKETPLACE=${MM_PLUGINSETTINGS_ENABLEMARKETPLACE}
+      - MM_PLUGINSETTINGS_AUTOMATICPREPACKAGEDPLUGINS=${MM_PLUGINSETTINGS_AUTOMATICPREPACKAGEDPLUGINS}
+      - MM_PLUGINSETTINGS_ENABLEUPLOADS=${MM_PLUGINSETTINGS_ENABLEUPLOADS}
+      - MM_PLUGINSETTINGS_REQUIREPLUGINSIGNATURE=${MM_PLUGINSETTINGS_REQUIREPLUGINSIGNATURE}
+      # mmctl
+      - MM_SERVICESETTINGS_ENABLELOCALMODE=${MM_SERVICESETTINGS_ENABLELOCALMODE}
+      - MM_SERVICESETTINGS_LOCALMODESOCKETLOCATION=${MM_SERVICESETTINGS_LOCALMODESOCKETLOCATION}
+      # admin user
+      - MM_USERNAME=${MM_USERNAME}
+      - MM_EMAIL=${MM_EMAIL}
+      - MM_PASSWORD:${MM_PASSWORD}
+      - MM_FORCE_CREATE_ADMIN="true"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mattermost.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.mattermost.service=${MATTERMOST_HOSTNAME}"
+      - "traefik.http.routers.mattermost.entrypoints=${MATTERMOST_ENTRYPOINT}"
+      - "traefik.http.services.mattermost.loadbalancer.server.port=8065"
+      - "traefik.http.routers.mattermost.tls=${MATTERMOST_TLS}"
+      - "traefik.http.routers.mattermost.tls.certresolver=le"
+      - "traefik.http.services.mattermost.loadbalancer.passhostheader=true"
+      - "traefik.http.routers.mattermost.middlewares=compresstraefik"
+      - "traefik.http.middlewares.compresstraefik.compress=true"
+      - "traefik.docker.network=pubnet"
+
+networks:
+  pubnet:
+    external: true
+    name: pubnet
+  prinet:
+    external: true
+    name: prinet

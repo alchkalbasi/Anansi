@@ -1,0 +1,40 @@
+---
+- name: Create a directory
+  become: yes
+  file:
+    path: "{{ dir_path }}"
+    state: directory
+    recurse: yes
+    mode: '0755'
+  tags: python-dir
+
+- name: Copy HTML
+  become: yes
+  template:
+    src: "{{ template }}"
+    dest: "{{ dir_path }}/{{ project_name }}"
+    force: yes
+  tags: project-templates
+
+- name: Create Docker network
+  docker_network:
+    name: "{{ NETWORK }}"
+    state: present
+    tags: docker-network
+
+- name: Run Python container
+  docker_container:
+    name: "{{ container_name }}"
+    image: "python:{{ python_version }}"
+    ports:
+      - "{{ publish_port }}:{{ target_port }}"
+    state: started
+    recreate: true
+    restart_policy: on-failure
+    networks:
+      - name: "{{ network }}"
+    working_dir: "{{ working_dir }}"
+    volumes:
+      - "{{ dir_path }}:{{ working_dir }}:ro"
+    command: "python -m http.server {{ target_port }}"
+  tags: python-run

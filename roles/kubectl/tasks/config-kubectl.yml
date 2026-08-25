@@ -1,0 +1,96 @@
+---
+# kubectl shell configuration tasks
+
+- name: Install bash-completion package
+  ansible.builtin.apt:
+    name: bash-completion
+    state: present
+  become: true
+  when: kubectl_bash_completion_enable | bool
+  tags:
+    - kubectl
+    - kubectl-config
+
+- name: Generate kubectl bash completion script
+  ansible.builtin.command:
+    cmd: kubectl completion bash
+  register: kubectl_completion_output
+  changed_when: false
+  become: true
+  when: kubectl_bash_completion_enable | bool
+  tags:
+    - kubectl
+    - kubectl-config
+
+- name: Install kubectl bash completion script system-wide
+  ansible.builtin.copy:
+    content: "{{ kubectl_completion_output.stdout }}\n"
+    dest: /etc/bash_completion.d/kubectl
+    mode: '0644'
+  become: true
+  when: kubectl_bash_completion_enable | bool
+  tags:
+    - kubectl
+    - kubectl-config
+
+- name: Look up target users' default shells
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ item }}"
+  register: kubectl_target_user_accounts
+  loop: "{{ kubectl_target_users }}"
+  when:
+    - kubectl_alias_name | length > 0
+    - kubectl_bash_completion_enable | bool
+  tags:
+    - kubectl
+    - kubectl-config
+
+- name: Validate target users' default shells
+  ansible.builtin.assert:
+    that:
+      - (item.ansible_facts.getent_passwd[item.item][5] | basename) in ['bash', 'zsh']
+    fail_msg: >-
+      The default shell for {{ item.item }} is
+      {{ item.ansible_facts.getent_passwd[item.item][5] }}; only bash and zsh
+      are supported for kubectl shell integration.
+  loop: "{{ kubectl_target_user_accounts.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when:
+    - kubectl_alias_name | length > 0
+    - kubectl_bash_completion_enable | bool
+  tags:
+    - kubectl
+    - kubectl-config
+
+- name: Configure kubectl alias and completion for each user's default shell
+  ansible.builtin.blockinfile:
+    path: "{{ kubectl_user_passwd_entry[4] }}/.{{ kubectl_user_shell }}rc"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - kubectl alias"
+    create: true
+    owner: "{{ item.item }}"
+    mode: '0644'
+    block: |
+      alias {{ kubectl_alias_name }}=kubectl
+      {% if kubectl_user_shell == 'zsh' %}
+      source <(kubectl completion zsh)
+      {% else %}
+      complete -F __start_kubectl {{ kubectl_alias_name }}
+      {% endif %}
+      {% for alias_name, alias_cmd in kubectl_extra_aliases.items() %}
+      alias {{ alias_name }}='{{ alias_cmd }}'
+      {% endfor %}
+  become: true
+  loop: "{{ kubectl_target_user_accounts.results }}"
+  loop_control:
+    label: "{{ item.item }} ({{ kubectl_user_shell }})"
+  when:
+    - kubectl_alias_name | length > 0
+    - kubectl_bash_completion_enable | bool
+  vars:
+    kubectl_user_passwd_entry: "{{ item.ansible_facts.getent_passwd[item.item] }}"
+    kubectl_user_shell: "{{ kubectl_user_passwd_entry[5] | basename }}"
+  tags:
+    - kubectl
+    - kubectl-config

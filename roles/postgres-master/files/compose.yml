@@ -1,0 +1,56 @@
+# Postgres-Master Compose file
+
+networks:
+  prinet:
+    external: true
+    name: ${DOCKER_NETWORK_PRIVATE}
+
+services:
+  postgres-master:
+    image: postgres:${POSTGRES_MASTER_VERSION}
+    restart: ${RESTART_POLICY}
+    hostname: ${POSTGRES_MASTER_HOSTNAME}
+    container_name: ${POSTGRES_MASTER_CONTAINER_NAME}
+    environment:
+      POSTGRES_USER: ${POSTGRES_MASTER_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_MASTER_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_MASTER_DB}
+    ports:
+      - "${POSTGRES_MASTER_PORT}:5432"
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+      - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./init-db:/docker-entrypoint-initdb.d:ro
+      - ./wal_archive:/var/lib/postgresql/wal_archive
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]    
+    networks:
+      - prinet
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_MASTER_USER} -d ${POSTGRES_MASTER_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '${POSTGRES_MASTER_RESOURCE_CPUS}'
+          memory: ${POSTGRES_MASTER_RESOURCE_MEMORY}
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:${POSTGRES_EXPORTER_TAG}
+    restart: ${RESTART_POLICY}
+    hostname: ${POSTGRES_EXPORTER_HOSTNAME}
+    container_name: ${POSTGRES_EXPORTER_CONTAINER_NAME}
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_EXPORTER_USER}:${POSTGRES_EXPORTER_PASSWORD}@${POSTGRES_MASTER_CONTAINER_NAME}:5432/${POSTGRES_MASTER_DB}?sslmode=disable"
+      EXTEND_COLLECTORS: "${EXTEND_COLLECTORS}"
+      DISABLE_COLLECTORS: "${DESABLE_COLLECTORS}"
+    ports:
+      - "${POSTGRES_EXPORTER_PORT}:9187"
+    networks:
+      - prinet
+    depends_on:
+      postgres-master:
+        condition: service_healthy
+

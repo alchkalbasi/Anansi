@@ -1,0 +1,6 @@
+url: https://example-url
+dest_download: /path
+permission: 0744
+
+dest_unarchive: /path
+

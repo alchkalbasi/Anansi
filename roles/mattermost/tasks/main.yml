@@ -1,0 +1,99 @@
+---
+- name: Ensure Docker is installed
+  apt:
+    name: docker.io
+    state: present
+  become: yes
+  tags:
+    - mattermost
+    - check
+
+- name: Ensure Docker Compose is installed
+  apt:
+    name: docker-compose
+    state: present
+  become: yes
+  tags:
+    - mattermost
+    - check
+
+- name: Create Mattermost directory
+  file:
+    path: "{{ mattermost_dir }}"
+    state: directory
+    mode: '0775'
+  tags:
+    - mattermost
+    - mattermost-dir
+
+- name: Create postgres directory
+  file:
+    path: "{{ postgres_dir }}"
+    state: directory
+    mode: '0775'
+  tags:
+    - mattermost
+    - postgres-dir
+
+- name: Copy Compose file
+  copy:
+    src: compose.yml
+    dest: "{{ mattermost_dir }}"
+    mode: '0640'
+  tags:
+    - mattermost
+    - compose
+
+- name: Template the .env to path
+  ansible.builtin.template:
+    src: .env.j2
+    dest: "{{ mattermost_dir }}/.env"
+    mode: "0640"
+  tags:
+    - mattermost
+    - compose
+  
+- name: Create public network
+  community.docker.docker_network:
+    name: "{{ public_net_name }}"
+    driver: bridge
+  tags:
+    - mattermost
+    - public-network
+
+- name: Create private network
+  community.docker.docker_network:
+    name: "{{ private_net_name }}"
+    driver: bridge
+  tags:
+    - mattermost
+    - private-network
+
+- name: Pull Docker images
+  community.docker.docker_compose_v2:
+    project_src: "{{ mattermost_dir }}"
+    policy: missing
+  tags:
+    - mattermost
+    - pull-images
+
+- name: Start containers Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ mattermost_dir }}"
+    state: present
+    remove_orphans: true
+  tags:
+    - mattermost
+    - run-container
+
+- name: Set ownership of Mattermost volumes
+  file:
+    path: "{{ mattermost_dir }}/volumes"
+    owner: 2000
+    group: 2000
+    mode: '2775'
+    recurse: yes
+  become: yes
+  tags:
+    - mattermost
+    - volumes

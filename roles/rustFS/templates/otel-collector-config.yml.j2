@@ -1,0 +1,60 @@
+# Receivers: Where the collector listens for data
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+# Processors: Transformations to the data before sending
+processors:
+  batch:
+    send_batch_size: 1000
+    timeout: 10s
+  
+  # Ensure we know which node (Master or Slave) the data came from
+  resource:
+    attributes:
+      - key: service.name
+        value: "rustfs"
+        action: upsert
+      - key: rustfs.node_role
+        # If rustfsmaster is true, it prints 'master'. Otherwise, it prints 'slave'.
+        value: "{{ rustfsmaster | ternary('master', 'slave') }}"
+        action: upsert
+      - key: rustfs.hostname
+        value: {{ rustfs_hostname }}
+        action: upsert
+
+  # Memory limiter prevents the collector from crashing during high traffic
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+# Exporters: Where to send the data
+exporters:
+  # Expose metrics for Prometheus to scrape
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: "rustfs"
+
+  # Useful for debugging: prints logs/metrics to the container's stdout
+  debug:
+    verbosity: basic
+
+# Service: The actual pipeline wiring everything together
+service:
+  telemetry:
+    logs:
+      level: "info"
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [prometheus, debug]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [debug]

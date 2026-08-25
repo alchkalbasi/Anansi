@@ -1,0 +1,39 @@
+networks:
+  prinet:
+    external: true
+    name: ${PRIVATE_NETWORK}
+  pubnet:
+    external: true
+    name: ${PUBLIC_NETWORK}
+
+services:
+  telegraf:
+    image: telegraf:${TELEGRAF_IMAGE_TAG}
+    container_name: ${TELEGRAF_CONTAINRER_NAME}
+    restart: ${RESTART_POLICY}
+    user: root # Required to read host DBus and Systemd state
+    entrypoint: ["telegraf", "--config", "/etc/telegraf/telegraf.conf"]
+    command: []
+    environment:
+      - INFLUX_URL=${INFLUX_URL}
+      - INFLUX_TOKEN=${INFLUX_TOKEN}
+      - INFLUX_ORG=${INFLUX_ORG}
+      - INFLUX_BUCKET=${INFLUX_BUCKET}
+    volumes:
+      # Telegraf config
+      - ./configs/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+      # Access to Docker Socket for Metadata
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - prinet
+    deploy:
+      resources:
+        limits:
+          memory: ${TELEGRAF_MEMORY_LIMIT}
+        reservations:
+          memory: ${TELEGRAF_MEMORY_RESERVATION}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "${TELEGRAF_MAX_LOG_SIZE}"
+        max-file: "${TELEGRAF_MAX_LOGFILE}"

@@ -1,0 +1,29 @@
+---
+ansible_user: "ali"
+MINIO_DIR: "/home/{{ ansible_user }}/minio"
+MINIO_COMPOSE: compose.yml.j2
+compose:
+  MINIO_TAG: "RELEASE.2025-04-22T22-12-26Z"
+  MINIO_CONTAINER_NAME: "minio"
+  MINIO_ROOT_USER: "minio"
+  MINIO_ROOT_PASSWORD: "miniopasswrd"
+  MINIO_COMMAND: "server /data --console-address ':9001'"
+  MINIO_PORT_1: "127.0.0.1:9000:9000"
+  MINIO_PORT_2: "127.0.0.1:9001:9001"
+  RESTART_POLICY: "unless-stopped"
+  HEALTHCHECK_URL: "http://localhost:9000/minio/health/live"
+  HEALTHCHECK_INTERVAL: "30s" 
+  HEALTHCHECK_TIMEOUT: "10s"
+  HEALTHCHECK_RETRIES: 3
+MINIO_SSL: false
+MINIO_CLIENT_BIN: /usr/local/bin/mc
+MINIO_BUCKETS:
+  - cache
+  - backup
+CREATE_MINIO_BUCKET: true
+CREATE_MINIO_POLICY: true
+MINIO_ENDPOINT: "http://127.0.0.1:9000"
+MINIO_POLICY_JSON: minio-policy.json.j2
+POLICY_NAME: "logs-bucket-rw"
+MINIO_USER: "{{ compose.MINIO_ROOT_USER }}"   # "minio"
+MINIO_GROUP: ""                               # leave empty if not using groups

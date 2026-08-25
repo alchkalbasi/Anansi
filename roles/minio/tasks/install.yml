@@ -1,0 +1,71 @@
+- name: Create minio directory
+  file:
+    path: "{{ MINIO_DIR }}"
+    state: directory
+    mode: '775'
+    recurse: yes
+  become: true
+  tags:
+    - minio
+    - install
+    - minio-dir
+
+- name: Create compose from template
+  template:
+    src: "{{ MINIO_COMPOSE }}"
+    dest: "{{ MINIO_DIR }}/compose.yml"
+    mode: '644'
+  become: true
+  tags:
+    - minio
+    - install
+    - minio-compose
+
+- name: Pull minio server docker images
+  community.docker.docker_compose_v2:
+    project_src: "{{ MINIO_DIR }}"
+    pull: always
+  tags:
+    - minio
+    - install
+    - minio-pull
+
+- name: Start minio server with docker compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ MINIO_DIR }}"
+    state: present
+    remove_orphans: true
+  tags:
+    - minio
+    - install
+    - minio-up
+
+- name: Download minio client
+  ansible.builtin.get_url:
+    url: https://dl.min.io/client/mc/release/linux-amd64/mc
+    dest: "{{ MINIO_CLIENT_BIN }}"
+    mode: '0755'
+  become: true
+  tags:
+    - minio
+    - install
+    - mc
+
+- name: Remove broken local alias (if exists)
+  ansible.builtin.command: "{{ MINIO_CLIENT_BIN }} alias rm local"
+  ignore_errors: true
+  tags:
+    - minio
+    - install
+    - config-mc
+
+- name: Configure mc alias
+  ansible.builtin.command: >
+    {{ MINIO_CLIENT_BIN }} alias set local {{ MINIO_ENDPOINT }}
+    {{ compose.MINIO_ROOT_USER }} {{ compose.MINIO_ROOT_PASSWORD }}
+  # args:
+  #   creates: "/home/{{ ansible_user }}/.mc/config.json"
+  tags:
+    - minio
+    - install
+    - config-mc

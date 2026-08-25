@@ -1,0 +1,25 @@
+- name: Clone netbox-docker repo at release branch
+  git:
+    repo: https://github.com/netbox-community/netbox-docker.git
+    dest: /opt/netbox-docker
+    version: release
+    force: yes
+
+- name: Create docker-compose.override.yml to map port 8000:8080
+  copy:
+    dest: /opt/netbox-docker/docker-compose.override.yml
+    content: |
+      services:
+        netbox:
+          ports:
+            - "8000:8080"
+
+- name: Pull Docker images for NetBox
+  command: docker compose pull
+  args:
+    chdir: /opt/netbox-docker
+
+- name: Start NetBox containers
+  command: docker compose up -d
+  args:
+    chdir: /opt/netbox-docker

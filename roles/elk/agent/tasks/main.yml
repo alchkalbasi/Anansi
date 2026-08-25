@@ -1,0 +1,49 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for agent
+
+- name: Check if Docker CE and Compose Plugin are installed
+  ansible.builtin.command: "{{ item }}"
+  register: docker_install_check
+  ignore_errors: true
+  changed_when: false
+  loop:
+    - "docker --version"
+    - "docker compose version"
+  tags:
+    - check-docker
+
+- name: Fail if Docker CE is missing
+  ansible.builtin.fail:
+    msg: "CRITICAL: Docker (docker-ce) is not installed on this host. Please install it before running this playbook."
+  when: docker_install_check.results[0].rc != 0
+  tags:
+    - check-docker
+
+- name: Fail if Docker Compose is missing
+  ansible.builtin.fail:
+    msg: "CRITICAL: Docker Compose Plugin is missing. Run 'sudo apt install docker-compose-plugin' to fix."
+  when: docker_install_check.results[1].rc != 0
+  tags:
+    - check-docker
+
+- name: Success message of docker-check task
+  ansible.builtin.debug:
+    msg: "Environment check passed. Docker and Compose are ready!"
+  tags:
+    - check-docker
+
+- name: Agent Preparation
+  include_tasks: prepare.yml
+  tags:
+    - aprepare
+
+- name: Agent Configuration
+  include_tasks: configure.yml
+  tags:
+    - aconfigure
+
+- name: Agent Deploy
+  include_tasks: deploy.yml
+  tags:
+    - adeploy

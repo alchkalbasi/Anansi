@@ -1,0 +1,10 @@
+#SPDX-License-Identifier: MIT-0
+---
+# handlers file for postgres-master
+
+- name: Restart Postgres
+  community.docker.docker_compose_v2:
+    project_src: "{{ service_dir }}"
+    state: present
+    recreate: always
+  when: deployment_result is not changed

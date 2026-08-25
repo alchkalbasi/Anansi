@@ -1,0 +1,12 @@
+character: utf8mb4
+collation: utf8mb4_unicode_520_ci
+mysqld:
+  max_connections: 500
+  skip_name_resolve: "true"
+
+MYSQL_VERSION: 8.0
+MYSQL_ROOT_PASSWORD: rootpass
+MYSQL_DATABASE: testdb
+MYSQL_PORT: 3306
+
+NETWORK: lempnet

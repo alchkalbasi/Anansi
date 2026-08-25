@@ -1,0 +1,15 @@
+[Unit]
+Description=HEPlify Capture Agent
+After=network.target
+
+[Service]
+Type=simple
+ExecStart={{ heplify_agent_execute_path }} -e -hs {{ heplify_server_ip }}:9060 -m SIP -dd -zf -l info
+Restart=on-failure
+RestartSec=10s
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=heplify
+
+[Install]
+WantedBy=multi-user.target

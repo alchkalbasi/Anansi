@@ -1,0 +1,53 @@
+---
+# kubectx / kubens alias tasks (backed by the ctx/ns Krew plugins)
+
+- name: Look up kubectx and kubens users' default shells
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ item }}"
+  register: kubectl_kubectx_user_accounts
+  loop: "{{ kubectl_target_users }}"
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kubectx-kubens
+
+- name: Validate kubectx and kubens users' default shells
+  ansible.builtin.assert:
+    that:
+      - (item.ansible_facts.getent_passwd[item.item][5] | basename) in ['bash', 'zsh']
+    fail_msg: >-
+      The default shell for {{ item.item }} is
+      {{ item.ansible_facts.getent_passwd[item.item][5] }}; only bash and zsh
+      are supported for kubectx and kubens aliases.
+  loop: "{{ kubectl_kubectx_user_accounts.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kubectx-kubens
+
+- name: Configure kubectx and kubens aliases for each user's default shell
+  ansible.builtin.blockinfile:
+    path: "{{ kubectl_kubectx_user_passwd_entry[4] }}/.{{ kubectl_kubectx_user_shell }}rc"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - kubectx/kubens aliases"
+    create: true
+    owner: "{{ item.item }}"
+    mode: '0644'
+    block: |
+      alias kctx="kubectl ctx"
+      alias kubectx="kubectl ctx"
+      alias kns="kubectl ns"
+      alias kubens="kubectl ns"
+  become: true
+  loop: "{{ kubectl_kubectx_user_accounts.results }}"
+  loop_control:
+    label: "{{ item.item }} ({{ kubectl_kubectx_user_shell }})"
+  vars:
+    kubectl_kubectx_user_passwd_entry: "{{ item.ansible_facts.getent_passwd[item.item] }}"
+    kubectl_kubectx_user_shell: "{{ kubectl_kubectx_user_passwd_entry[5] | basename }}"
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kubectx-kubens

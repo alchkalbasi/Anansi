@@ -1,0 +1,30 @@
+- name: Generate SSL certificates using Certbot container
+  community.docker.docker_container:
+    name: certbot_init
+    image: certbot/certbot:latest
+    state: started
+    detach: false
+    cleanup: true
+    volumes:
+      - "{{ service_dir }}/nginx/certs:/etc/letsencrypt"
+      - "{{ service_dir }}/nginx/certbot-webroot:/var/www/certbot"
+    command: >
+      certonly --webroot
+      -w /var/www/certbot
+      --email {{ admin_email }}
+      --agree-tos
+      --no-eff-email
+      --non-interactive
+      -d {{ s3_domain }}
+      -d {{ console_domain }}
+  register: certbot_result
+
+- name: Template the nginx-ssl.conf file to path
+  ansible.builtin.template:
+    src: nginx/nginx-ssl.conf.j2
+    dest: "{{ service_dir }}/nginx/conf.d/nginx.conf"
+    mode: '0755'
+  when: certbot_result is changed
+  notify: "reload nginx"
+  tags:
+    - use-certs

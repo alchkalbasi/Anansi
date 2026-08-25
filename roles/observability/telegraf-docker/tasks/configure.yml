@@ -1,0 +1,25 @@
+# Telegraf configuration tasks
+
+- name: Template the Telegraf-Docker .env file to path
+  ansible.builtin.template:
+    src: .env.j2
+    dest: "{{ service_dir }}/.env"
+    mode: '0755'
+  tags:
+    - env-file
+
+- name: Copy the Telegraf-Docker compose file with owner and permissions
+  ansible.builtin.copy:
+    src: compose.yml
+    dest: "{{ service_dir }}/compose.yml"
+    mode: '0755'
+  tags:
+    - compose-file
+
+- name: Template the Telegraf-Docker config file to path
+  ansible.builtin.template:
+    src: telegraf.conf.j2
+    dest: "{{ service_dir }}/configs/telegraf.conf"
+    mode: '0755'
+  tags:
+    - config-file

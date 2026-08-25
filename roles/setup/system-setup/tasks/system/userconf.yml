@@ -1,0 +1,60 @@
+---
+# tasks/system/userconfs.yml
+
+- name: Ensure primary user exists
+  ansible.builtin.user:
+    name: "{{ setup_user_name }}"
+    groups: "{{ setup_user_name }}"
+    append: true
+    create_home: true
+    state: present
+  become: true
+  when: setup_user_create | bool
+  tags:
+    - system-setup
+    - system-setup-user-conf
+    - system-setup-create-user
+
+- name: Configure passwordless sudo
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ setup_user_name }}"
+    content: "{{ setup_user_name }} ALL=(ALL) NOPASSWD:ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "/usr/sbin/visudo -cf %s"
+  become: true
+  when: setup_user_passwordless_sudo | bool
+  tags:
+    - system-setup
+    - system-setup-user-conf
+    - system-setup-passwordless
+
+- name: Create user workspace directory
+  ansible.builtin.file:
+    path: "/home/{{ setup_user_name }}/{{ setup_user_workspace_dir }}"
+    state: directory
+    owner: "{{ setup_user_name }}"
+    group: "{{ setup_user_name }}"
+    mode: "0755"
+  become: true
+  when:
+    - setup_user_workspace_dir is defined
+    - setup_user_workspace_dir | length > 0
+  tags:
+    - system-setup
+    - system-setup-user-conf
+    - system-setup-workspace-dir
+
+- name: Ensure ownership of home directory
+  ansible.builtin.file:
+    path: "/home/{{ setup_user_name }}/{{ setup_user_workspace_dir }}"
+    owner: "{{ setup_user_name }}"
+    group: "{{ setup_user_name }}"
+    recurse: true
+  become: true
+  when: setup_user_fix_home_permissions | bool
+  tags:
+    - system-setup
+    - system-setup-user-conf
+    - system-setup-user-perm

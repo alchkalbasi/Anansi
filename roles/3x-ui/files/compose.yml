@@ -1,0 +1,12 @@
+services:
+  3x-ui:
+    image: ${XUI_DOCKER_IMAGE}
+    container_name: ${XUI_CONTAINER_NAME}
+    volumes:
+      - ./db:/etc/x-ui
+      - ./cert:/root/cert
+    environment:
+      - XUI_LOG_LEVEL=${XUI_LOG_LEVEL}
+      - XUI_ENABLE_FAIL2BAN=${XUI_ENABLE_FAIL2BAN}
+    network_mode: host
+    restart: ${XUI_RESTART_POLICY}

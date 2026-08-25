@@ -1,0 +1,74 @@
+services:
+  db:
+    image: postgres:${POSTGRES_IMAGE_TAG}
+    container_name: ${POSTGRES_CONTAINER_NAME}
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: ${RESTART_POLICY}
+    networks: 
+      - prinet
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  heplify-server:
+    image: sipcapture/heplify-server:${HEPLIFY_IMAGE_TAG}
+    container_name: ${HEPLIFY_CONTAINER_NAME}
+    command:
+      - './heplify-server'
+    environment:
+      - "HEPLIFYSERVER_DBADDR=db:5432"
+      - "HEPLIFYSERVER_DBUSER=${POSTGRES_USER}"
+      - "HEPLIFYSERVER_DBPASS=${POSTGRES_PASSWORD}"
+      - "HEPLIFYSERVER_DBNAME=${POSTGRES_DB}"
+      - "HEPLIFYSERVER_DBDRIVER=postgres"
+      - "HEPLIFYSERVER_DBSHEMA=homer7"
+      - "HEPLIFYSERVER_DBDATATABLE=homer_data"
+      - "HEPLIFYSERVER_DBCONFTABLE=homer_config"
+      - "HEPLIFYSERVER_HEPADDR=0.0.0.0:9060"
+      - "HEPLIFYSERVER_LOGLVL=info"
+      - "HEPLIFYSERVER_LOGSTD=true"
+      - "HEPLIFYSERVER_DBDROPDAYS=7"
+    ports:
+      - "${PROM_SERVER_IP}:9060:9060/udp"
+      - "${PROM_SERVER_IP}:9060:9060/tcp"
+      - "${PROM_SERVER_IP}:9096:9096"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: ${RESTART_POLICY}
+    networks: 
+      - prinet
+
+  homer-app:
+    image: sipcapture/homer-app:${HEPLIFYUI_IMAGE_TAG}
+    container_name: ${HEPLIFYUI_CONTAINER_NAME}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${PROM_SERVER_IP}:9080:80"
+    environment:
+      - "DB_TYPE=postgres"
+      - "DB_HOST=db"
+      - "DB_PORT=5432"
+      - "DB_USER=${POSTGRES_USER}"
+      - "DB_PASS=${POSTGRES_PASSWORD}"
+      - "DB_NAME=${POSTGRES_DB}"
+      - "HOMER_LOG_STDOUT=true"
+    restart: ${RESTART_POLICY}
+    networks: 
+      - prinet
+
+volumes:
+  postgres_data:
+
+networks:
+  prinet:
+    external: true

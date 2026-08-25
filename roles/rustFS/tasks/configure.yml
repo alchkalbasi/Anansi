@@ -1,0 +1,33 @@
+- name: Template the .env file to path
+  ansible.builtin.template:
+    src: .env.j2
+    dest: "{{ service_dir }}/.env"
+    mode: '0755'
+  tags:
+    - env-file
+
+- name: Template the OpenTelemetry config file to path
+  ansible.builtin.template:
+    src: otel-collector-config.yml.j2
+    dest: "{{ service_dir }}/otel-confs/otel-collector-config.yml"
+    mode: '0755'
+  tags:
+    - otel-conf
+
+- name: Template the nginx-withoutssl.conf file to path
+  ansible.builtin.template:
+    src: nginx/nginx-withoutssl.conf.j2
+    dest: "{{ service_dir }}/nginx/conf.d/nginx.conf"
+    mode: '0755'
+  when: nginx_certs_content.matched == 0
+  tags:
+    - nginx-conf-wossl
+
+- name: Template the nginx-ssl.conf file to path
+  ansible.builtin.template:
+    src: nginx/nginx-ssl.conf.j2
+    dest: "{{ service_dir }}/nginx/conf.d/nginx.conf"
+    mode: '0755'
+  when: nginx_certs_content.matched == 1
+  tags:
+    - nginx-conf-ssl

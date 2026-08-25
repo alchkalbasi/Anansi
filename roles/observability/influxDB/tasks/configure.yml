@@ -1,0 +1,25 @@
+# configuration tasks
+
+- name: Template the InfluxDB .env file to path
+  ansible.builtin.template:
+    src: .env.j2
+    dest: "{{ service_dir }}/.env"
+    mode: '0755'
+  tags:
+    - env-file
+
+- name: Copy the InfluxDB compose file with owner and permissions
+  ansible.builtin.copy:
+    src: compose.yml
+    dest: "{{ service_dir }}/compose.yml"
+    mode: '0755'
+  tags:
+    - compose-file
+
+- name: Template the InfluxDB config file to path
+  ansible.builtin.template:
+    src: config.yml.j2
+    dest: "{{ service_dir }}/configs/config.yml"
+    mode: '0755'
+  tags:
+    - config-file

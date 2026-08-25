@@ -1,0 +1,33 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for rustFS
+
+# global
+project_dir: /opt/services
+service_dir: "{{ project_dir }}/rustFS"
+docker_networks:
+  - prinet
+  - pubnet
+
+# configure.yml
+rustfs_image_tag: 1.0.0-alpha.83
+rustfs_container_name: rustfs
+rustfs_access_key: rustfsaccess
+rustfs_secret_key: rustfssecret
+restart_policy: unless-stopped
+otel_image_tag: 0.145.0
+otel_container_name: otel-collector
+nginx_image_tag: stable-alpine
+nginx_container_name: nginx-proxy
+
+rustfsmaster: true
+rustfs_hostname: "{{ inventory_hostname }}"
+
+s3_domain: s3.api.com
+console_domain: s3.com
+
+# nginx.yml
+admin_email: example@gmail.com
+
+# init.yml
+rustfs_bucket_name: mizban

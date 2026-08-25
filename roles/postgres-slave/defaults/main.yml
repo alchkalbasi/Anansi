@@ -1,0 +1,56 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for postgres-slave
+
+# global
+project_dir: /opt/services
+service_dir: "{{ project_dir }}/postgres-slave"
+docker_networks:
+  - prinet
+  - pubnet
+
+postgres_master_ip: 127.0.0.1
+postgres_replication_user: postgres
+postgres_replication_password: postgres
+
+# docker vars
+restart_policy: unless-stopped
+
+postgres_version: 16
+postgres_slave_hostname: postgres-slave
+postgres_slave_container_name: postgres-slave
+postgres_slave_password: postgres
+postgres_slave_user: postgres
+postgres_slave_port: 5432
+postgres_master_port: 5432
+postgres_slave_resource_cpus: 3.5
+postgres_slave_resource_memory: 3.8G
+
+postgres_exporter_tag: v0.17.1
+postgres_exporter_hostname: postgres-exporter
+postgres_exporter_container_name: postgres-exporter
+postgres_exporter_user: exporter
+postgres_exporter_password: exporter
+extend_collectors: "database,table,functions,indexes,roles,locks,settings,activity,stat_user_tables,stat_user_indexes,statio_user_tables,statio_user_indexes"
+disable_collectors: "wal"
+postgres_exporter_port: 9187
+
+# Postgres Configs
+primary_ip: 127.0.0.1
+standby_ip: 127.0.0.1
+app_network: 10.0.0.0/24
+replication_slot: standby1
+wal_keep_size: 2048MB
+max_wal_senders: 10
+max_replication_slots: 10
+enable_ssl: false
+enable_archive: true
+wal_archive_dir: /var/lib/postgresql/wal_archive
+max_worker_processes: 8
+max_parallel_workers_per_gather: 2
+max_parallel_workers: 4
+max_parallel_maintenance_workers: 2
+shared_buffers: 1024MB
+effective_cache_size: 3072MB
+work_mem: 32MB
+

@@ -1,0 +1,161 @@
+---
+# Krew plugin manager addon tasks
+
+- name: Set Krew architecture fact
+  ansible.builtin.set_fact:
+    kubectl_krew_arch: "{{ kubectl_arch_map[ansible_facts['architecture']] | default('amd64') }}"
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-krew
+
+- name: Check if Krew is already installed
+  ansible.builtin.stat:
+    path: "/home/{{ item }}/.krew/bin/kubectl-krew"
+  register: kubectl_krew_check
+  loop: "{{ kubectl_target_users }}"
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-krew
+
+- name: Create temporary download directory for Krew
+  ansible.builtin.file:
+    path: "/home/{{ item.item }}/.cache/krew-install"
+    state: directory
+    owner: "{{ item.item }}"
+    mode: '0755'
+  become: true
+  loop: "{{ kubectl_krew_check.results }}"
+  when: not item.stat.exists
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-krew
+
+- name: Download Krew release archive
+  ansible.builtin.get_url:
+    url: "https://github.com/kubernetes-sigs/krew/releases/download/{{ kubectl_krew_version }}/krew-linux_{{ kubectl_krew_arch }}.tar.gz"
+    dest: "/home/{{ item.item }}/.cache/krew-install/krew.tar.gz"
+    owner: "{{ item.item }}"
+    mode: '0644'
+  become: true
+  loop: "{{ kubectl_krew_check.results }}"
+  when: not item.stat.exists
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-krew
+
+- name: Extract Krew release archive
+  ansible.builtin.unarchive:
+    src: "/home/{{ item.item }}/.cache/krew-install/krew.tar.gz"
+    dest: "/home/{{ item.item }}/.cache/krew-install"
+    remote_src: true
+    owner: "{{ item.item }}"
+  become: true
+  loop: "{{ kubectl_krew_check.results }}"
+  when: not item.stat.exists
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-krew
+
+- name: Run Krew installer
+  ansible.builtin.command:
+    cmd: "./krew-linux_{{ kubectl_krew_arch }} install krew"
+    chdir: "/home/{{ item.item }}/.cache/krew-install"
+  become: true
+  become_user: "{{ item.item }}"
+  loop: "{{ kubectl_krew_check.results }}"
+  when: not item.stat.exists
+  changed_when: true
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-krew
+
+- name: Remove temporary Krew download directory
+  ansible.builtin.file:
+    path: "/home/{{ item.item }}/.cache/krew-install"
+    state: absent
+  become: true
+  loop: "{{ kubectl_krew_check.results }}"
+  when: not item.stat.exists
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-krew
+
+- name: Look up Krew users' default shells
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ item }}"
+  register: kubectl_krew_user_accounts
+  loop: "{{ kubectl_target_users }}"
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-krew
+
+- name: Validate Krew users' default shells
+  ansible.builtin.assert:
+    that:
+      - (item.ansible_facts.getent_passwd[item.item][5] | basename) in ['bash', 'zsh']
+    fail_msg: >-
+      The default shell for {{ item.item }} is
+      {{ item.ansible_facts.getent_passwd[item.item][5] }}; only bash and zsh
+      are supported for Krew PATH configuration.
+  loop: "{{ kubectl_krew_user_accounts.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-krew
+
+- name: Add Krew to PATH for each user's default shell
+  ansible.builtin.blockinfile:
+    path: "{{ kubectl_krew_user_passwd_entry[4] }}/.{{ kubectl_krew_user_shell }}rc"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - krew path"
+    create: true
+    owner: "{{ item.item }}"
+    mode: '0644'
+    block: |
+      export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+  become: true
+  loop: "{{ kubectl_krew_user_accounts.results }}"
+  loop_control:
+    label: "{{ item.item }} ({{ kubectl_krew_user_shell }})"
+  vars:
+    kubectl_krew_user_passwd_entry: "{{ item.ansible_facts.getent_passwd[item.item] }}"
+    kubectl_krew_user_shell: "{{ kubectl_krew_user_passwd_entry[5] | basename }}"
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-krew
+
+- name: Check installed Krew plugins
+  ansible.builtin.stat:
+    path: "/home/{{ item[0] }}/.krew/bin/kubectl-{{ item[1] }}"
+  register: kubectl_krew_plugin_check
+  loop: "{{ kubectl_target_users | product(kubectl_krew_plugins) | list }}"
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-krew
+
+- name: Install Krew plugins
+  ansible.builtin.command:
+    cmd: "/home/{{ item.item[0] }}/.krew/bin/kubectl-krew install {{ item.item[1] }}"
+  environment:
+    PATH: "/home/{{ item.item[0] }}/.krew/bin:{{ ansible_env.PATH }}"
+  become: true
+  become_user: "{{ item.item[0] }}"
+  loop: "{{ kubectl_krew_plugin_check.results }}"
+  when: not item.stat.exists
+  changed_when: true
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-krew

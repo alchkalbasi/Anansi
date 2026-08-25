@@ -1,0 +1,59 @@
+---
+# config docker tasks
+
+- name: Create a group named 'docker'
+  ansible.builtin.group:
+    name: docker
+    state: present
+  become: true
+  tags:
+    - docker
+    - docker-config-docker
+    - docker-group
+
+- name: Add users to 'docker' group
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: docker
+    append: true
+  loop: "{{ docker_users | default([]) }}"
+  become: true
+  tags:
+    - docker
+    - docker-config-docker
+    - docker-group
+
+- name: Ensure /etc/docker directory exists
+  ansible.builtin.file:
+    path: /etc/docker
+    state: directory
+    mode: '0755'
+  become: true
+  tags:
+    - docker
+    - docker-config-docker
+    - docker-daemon
+
+- name: Configure Docker daemon engine options (daemon.json)
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    content: "{{ docker_daemon_config | to_nice_json }}"
+    mode: '0644'
+  become: true
+  notify: Restart Docker
+  tags:
+    - docker
+    - docker-config-docker
+    - docker-daemon
+
+- name: Ensure Docker services are started and enabled
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop: "{{ docker_services_to_enable | default(['docker', 'containerd']) }}"
+  become: true
+  tags:
+    - docker
+    - docker-config-docker
+    - docker-service

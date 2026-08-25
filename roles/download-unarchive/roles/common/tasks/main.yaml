@@ -1,0 +1,6 @@
+---
+- name: include download
+  include_tasks: download.yaml
+
+- name: include unarchive
+  include_tasks: unarchive.yaml

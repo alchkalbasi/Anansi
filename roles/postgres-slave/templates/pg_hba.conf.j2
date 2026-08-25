@@ -1,0 +1,25 @@
+# ============================================================
+# pg_hba.conf (SLAVE)
+# ============================================================
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+
+## Local host socket access
+local   all             all                                     peer
+
+## Local host TCP access (for Exporter/Local tools)
+host    all             all             127.0.0.1/32            scram-sha-256
+host    all             all             ::1/128                 scram-sha-256
+
+# Allow the Master to connect (useful for monitoring tools running on Master)
+host    all             all             {{ primary_ip }}/32     scram-sha-256
+
+# Allow Application Network (Read-Only queries)
+{% if enable_ssl %}
+hostssl all             all             {{ app_network }}       scram-sha-256
+{% else %}
+host    all             all             {{ app_network }}       scram-sha-256
+{% endif %}
+
+# Default deny
+host    all             all             0.0.0.0/0               reject
+host    all             all             ::0/0                   reject

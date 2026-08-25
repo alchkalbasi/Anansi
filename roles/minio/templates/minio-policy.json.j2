@@ -1,0 +1,42 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {% set bucket_arn = "arn:aws:s3:::" ~ bucket_name %}
+    {% set object_arn = bucket_arn ~ "/*" %}
+
+    {# Build action lists based on access_mode #}
+    {% set list_actions = ["s3:ListBucket"] %}
+    {% set read_obj = ["s3:GetObject"] %}
+    {% set write_obj = ["s3:PutObject", "s3:DeleteObject"] %}
+
+    {% if access_mode == "readonly" %}
+      {
+        "Effect": "Allow",
+        "Action": {{ (list_actions) | tojson }},
+        "Resource": "{{ bucket_arn }}"
+      },
+      {
+        "Effect": "Allow",
+        "Action": {{ (read_obj) | tojson }},
+        "Resource": "{{ object_arn }}"
+      }
+    {% elif access_mode == "writeonly" %}
+      {
+        "Effect": "Allow",
+        "Action": {{ (write_obj) | tojson }},
+        "Resource": "{{ object_arn }}"
+      }
+    {% else %} {# readwrite (default) #}
+      {
+        "Effect": "Allow",
+        "Action": {{ (list_actions) | tojson }},
+        "Resource": "{{ bucket_arn }}"
+      },
+      {
+        "Effect": "Allow",
+        "Action": {{ (read_obj + write_obj) | tojson }},
+        "Resource": "{{ object_arn }}"
+      }
+    {% endif %}
+  ]
+}

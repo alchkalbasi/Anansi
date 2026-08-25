@@ -1,0 +1,36 @@
+---
+- name: Wait for RustFS API to be ready
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:9000/health"
+    status_code: 200
+  register: _result
+  until: _result.status == 200
+  retries: 10
+  delay: 5
+
+- name: Download MinIO Client (mc) binary
+  get_url:
+    url: https://dl.min.io/client/mc/release/linux-amd64/mc
+    dest: /usr/local/bin/mc
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Verify mc installation
+  command: mc --version
+  register: mc_version
+  changed_when: false
+
+- name: Set mc alias for RustFS
+  command: >
+    mc alias set local http://127.0.0.1:9000 {{ rustfs_access_key }} {{ rustfs_secret_key }}
+  changed_when: false
+
+- name: Create initial storage bucket
+  ansible.builtin.command: >
+    mc mb --ignore-existing local/{{ rustfs_bucket_name }}
+  register: _mb_output
+  # check the output to see if it actually did something or if it already existed
+  changed_when: 
+    - "'Bucket created successfully' in _mb_output.stdout"
+    - "'already exists' not in _mb_output.stderr"

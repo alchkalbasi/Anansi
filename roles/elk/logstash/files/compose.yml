@@ -1,0 +1,49 @@
+networks:
+  prinet:
+    external: true
+    name: ${PRIVATE_NETWORK}
+  pubnet:
+    external: true
+    name: ${PUBLIC_NETWORK}
+
+services:
+  logstash:
+    image: dhi.io/logstash:${LOGSTASH_IMAGE_TAG}
+    container_name: ${LOGSTASH_CONTAINER_NAME}
+    restart: ${RESTART_POLICY}
+    volumes:
+      - ./pipeline:/usr/share/logstash/pipeline:ro
+      - ./ldata:/usr/share/logstash/data
+    environment:
+      LS_JAVA_OPTS: "-Xmx${MINIMUM_HEAP_SIZE} -Xms${MAXIMUM_HEAP_SIZE}"
+      LC_ALL: "en_US.UTF-8"
+      LANG: "en_US.UTF-8"
+      NODE_NAME: ${LOGSTASH_NODE_NAME}
+      HTTP_HOST: ${LOGSTASH_HTTP_HOST}
+      PIPELINE_WORKERS: ${LOGSTASH_PIPELINE_WORKERS}
+      PIPELINE_BATCH_SIZE: ${LOGSTASH_PIPELINE_BATCH_SIZE}
+      QUEUE_TYPE: "${LOGSTASH_QUEUE_TYPE}"
+      MONITORING_ENABLED: "${LOGSTASH_MONITORING_ENABLED}"
+      MONITORING_ELASTICSEARCH_HOSTS: "${ELASTIC_HOSTNAME}"
+      MONITORING_ELASTICSEARCH_USERNAME: "${ELASTIC_USERNAME}"
+      MONITORING_ELASTICSEARCH_PASSWORD: "${ELASTIC_PASSWORD}"
+      ELASTIC_HOSTS: "${ELASTIC_HOSTNAME}"
+      ELASTIC_USER: "${ELASTIC_USERNAME}"
+      ELASTIC_PASS: "${ELASTIC_PASSWORD}"
+    networks:
+      - prinet
+      - pubnet
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=pubnet"
+      # --- TCP ROUTER FOR BEATS ---
+      - "traefik.tcp.routers.logstash-beats.entrypoints=beats"
+      # If not using TLS inside Logstash, use HostSNI(*)
+      - "traefik.tcp.routers.logstash-beats.rule=HostSNI(`*`)"
+      - "traefik.tcp.services.logstash-beats.loadbalancer.server.port=5044"
+      # --- HTTP ROUTER FOR API ---
+      - "traefik.http.routers.logstash-api.rule=Host(`${LOGSTASH_SUBDOMAIN}.${MAIN_DOMAIN}`)"
+      - "traefik.http.routers.logstash-api.entrypoints=web-secure"
+      - "traefik.http.routers.logstash-api.tls=true"
+      - "traefik.http.routers.logstash-api.tls.certresolver=le"
+      - "traefik.http.services.logstash-api.loadbalancer.server.port=9600"

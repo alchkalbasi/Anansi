@@ -1,0 +1,20 @@
+---
+# handlers file for docker
+
+- name: Restart Docker
+  ansible.builtin.systemd:
+    name: docker
+    state: restarted
+    daemon_reload: true
+  become: true
+
+- name: Restart Xray
+  ansible.builtin.systemd_service:
+    name: xray
+    state: restarted
+  become: true
+
+- name: Reload Systemd Daemon
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  become: true

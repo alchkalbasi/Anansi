@@ -1,0 +1,36 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for kibana
+
+# global
+project_dir: /opt/services/elk
+service_dir: "{{ project_dir }}/kibana"
+docker_networks:
+  - prinet
+  - pubnet
+
+# .env vars
+kibana_image_tag: 8.19.11
+kibana_container_name: kibana
+RESTART_POLICY: unless-stopped
+kibana_server_name: kibana
+elastic_hostname: "http://elasticsearch:9200"
+main_domain: elk.com
+elastic_subdomain: elastic
+elastic_password: 1234
+elastic_username: kibana_system
+kibana_public_url: "https://{{ kibana_subdomain }}.{{ main_domain  }}"
+kibana_subdomain: kibana
+kibana_monitoring_ui_container_elasticsearch_enabled: true
+kibana_xpack_fleet_enabled: true
+kibana_xpack_fleet_agents_enabled: true
+kibana_xpack_fleet_agents_fleet_server_hosts: "https://{{ fleet_subdomain }}.{{ main_domain }}"
+fleet_subdomain: fleet
+kibana_xpack_fleet_agents_tlscheckdisabled: true
+kibana_max_cpu_core: 2.0
+kibana_max_memory: 2G
+kibana_memory_reserved: 1G
+restart_policy: unless-stopped
+kibana_xpack_security_encryptionkey: 1234
+kibana_xpack_encryptedsavedobjects_encryptionkey: 1234
+kibana_xpack_reporting_encryptionkey: 1234

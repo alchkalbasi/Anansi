@@ -1,0 +1,14 @@
+galaxy_info:
+  role_name: python-docker
+  author: Ali9K
+  description: A role to deploy a Python HTTP server in a Docker container.
+  license: MIT
+  min_ansible_version: 2.9
+  platforms:
+    - name: 
+      - Ubuntu
+      - Debian
+      versions:
+        - all
+  dependencies: []
+

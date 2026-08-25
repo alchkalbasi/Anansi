@@ -1,0 +1,141 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for postgres-slave
+
+- name: Check if Docker CE and Compose Plugin are installed
+  ansible.builtin.command: "{{ item }}"
+  register: docker_install_check
+  ignore_errors: true
+  changed_when: false
+  loop:
+    - "docker --version"
+    - "docker compose version"
+  tags:
+    - check-docker
+
+- name: Fail if Docker CE is missing
+  ansible.builtin.fail:
+    msg: "CRITICAL: Docker (docker-ce) is not installed on this host. Please install it before running this playbook."
+  when: docker_install_check.results[0].rc != 0
+  tags:
+    - check-docker
+
+- name: Fail if Docker Compose is missing
+  ansible.builtin.fail:
+    msg: "CRITICAL: Docker Compose Plugin is missing. Run 'sudo apt install docker-compose-plugin' to fix."
+  when: docker_install_check.results[1].rc != 0
+  tags:
+    - check-docker
+
+- name: Success message of docker-check task
+  ansible.builtin.debug:
+    msg: "Environment check passed. Docker and Compose are ready!"
+  tags:
+    - check-docker
+
+- name: Creates service directory 
+  ansible.builtin.file:
+    path: "{{ service_dir }}"
+    state: directory
+  tags:
+    - preparing
+
+- name: Creates pgdata directory 
+  ansible.builtin.file:
+    path: "{{ service_dir }}/pgdata"
+    state: directory
+    owner: "999"
+    group: "999"
+    mode: '0700'
+  tags: preparing
+
+- name: Copy the compose file with owner and permissions
+  ansible.builtin.copy:
+    src: compose.yml
+    dest: "{{ service_dir }}/compose.yml"
+  tags:
+  - compose-preparing
+
+- name: Template the .env file to path
+  ansible.builtin.template:
+    src: .env.j2
+    dest: "{{ service_dir }}/.env"
+  notify: Restart Postgres
+  tags:
+  - compose-preparing
+
+- name: Check if Slave data already exists
+  ansible.builtin.stat:
+    path: "{{ service_dir }}/pgdata/PG_VERSION"
+  register: slave_data_status
+  tags:
+    - replication-check
+
+- name: Copy all the data from the master
+  community.docker.docker_container:
+    name: "postgres-basebackup"
+    image: "postgres:{{ postgres_version }}"
+    detach: no
+    cleanup: yes
+    # We use the replication user created on the Master earlier
+    env:
+      PGHOST: "{{ postgres_master_ip }}"
+      PGPORT: "5432"
+      PGUSER: "{{ postgres_replication_user }}"
+      PGPASSWORD: "{{ postgres_replication_password }}"
+    volumes:
+      - "{{ service_dir }}/pgdata:/var/lib/postgresql/data"
+    # -R creates the standby.signal and connection info automatically
+    command: "pg_basebackup -w -D /var/lib/postgresql/data -R -X stream -P"
+  when: not slave_data_status.stat.exists
+  tags:
+    - replication-sync
+
+- name: Template configuration files
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ service_dir }}/{{ item.dest }}"
+    owner: "999"
+    group: "999"
+    mode: '0644'
+  loop:
+    - { src: 'postgresql.conf.j2', dest: 'postgresql.conf' }
+    - { src: 'pg_hba.conf.j2', dest: 'pg_hba.conf' }
+  notify: Restart Postgres
+  tags:
+  - configuration
+
+- name: Create docker external networks with name
+  docker_network:
+    name: "{{ item }}"
+    driver_options:
+      com.docker.network.bridge.name: "{{ item }}"
+  loop: "{{ docker_networks }}"
+  tags:
+    - docker-networks
+
+- name: Pull Postgres-Slave image for project
+  community.docker.docker_compose_v2_pull:
+    project_src: "{{ service_dir }}"
+    policy: missing #pull if only the images doesn't exist locally
+  tags:
+    - pull
+
+- name: Deploy Postgres-Slave Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ service_dir }}"
+  register: deployment_result
+  tags:
+    - deploy
+
+- name: Wait for Postgres-Slave container healthcheck to be healthy
+  community.docker.docker_container_info:
+    name: "{{ postgres_slave_container_name }}"
+  register: postgres_info
+  until: >
+    postgres_info.container.State.Health is defined and
+    postgres_info.container.State.Health.Status == "healthy"
+  retries: 60
+  delay: 5
+  tags:
+    - healthcheck

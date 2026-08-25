@@ -1,0 +1,43 @@
+[global_tags]
+  agent_type = "{{ agent_type | default('dockerlogs') }}"
+  hostname = "{{ hostname | default('my-production-server') }}"
+
+[agent]
+  interval = "{{ agent_interval | default('10s') }}"
+  round_interval = true
+  metric_batch_size = {{ metric_batch_size | default(1000) }}
+  metric_buffer_limit = {{ metric_buffer_limit | default(10000) }}
+  collection_jitter = "0s"
+  flush_interval = "{{ flush_interval | default('10s') }}"
+  flush_jitter = "0s"
+  precision = "0s"
+  omit_hostname = false
+
+[[outputs.influxdb_v2]]
+  urls = ["{{ influx_url }}"]
+  token = "{{ influx_token }}"
+  organization = "{{ influx_org }}"
+  bucket = "{{ influx_bucket }}"
+
+# --- DOCKER LOGS METRICS ---
+[[inputs.docker_log]]
+  endpoint = "{{ telegraf_docker_log_endpoint | default('unix:///var/run/docker.sock') }}"
+  from_beginning = {{ telegraf_docker_log_from_beginning | default(false) | lower }}
+  timeout = "{{ telegraf_docker_log_timeout | default('5s') }}"
+  source_tag = {{ telegraf_docker_log_source_tag | default(false) | lower }}
+  
+  {% if telegraf_docker_log_include %}
+  container_name_include = {{ telegraf_docker_log_include | to_json }}
+  {% endif %}
+  
+  {% if telegraf_docker_log_exclude %}
+  container_name_exclude = {{ telegraf_docker_log_exclude | to_json }}
+  {% endif %}
+
+  {% if telegraf_docker_container_state_include %}
+  container_state_include = {{ telegraf_docker_container_state_include | to_json }}
+  {% endif %}
+
+  {% if telegraf_docker_label_include %}
+  docker_label_include = {{ telegraf_docker_label_include | to_json }}
+  {% endif %}

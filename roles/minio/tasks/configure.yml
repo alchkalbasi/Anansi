@@ -1,0 +1,39 @@
+---
+- name: Set insecure mc command
+  set_fact:
+    mc_command: "{{ MINIO_CLIENT_BIN }} --insecure"
+  when: not MINIO_SSL
+  tags:
+    - minio
+    - configure
+    - no-ssl
+
+- name: Set secure mc command
+  set_fact:
+    mc_command: "{{ MINIO_CLIENT_BIN }}"
+  when: MINIO_SSL
+  tags:
+    - minio
+    - configure
+    - ssl
+
+- name: Ensure minio buckets exist
+  ansible.builtin.shell: >
+    {{ mc_command }} ls local/{{ item }} || {{ mc_command }} mb local/{{ item }}
+  loop: "{{ MINIO_BUCKETS }}"
+  loop_control:
+    loop_var: item
+  ignore_errors: true
+  when: CREATE_MINIO_BUCKET | bool
+  tags:
+    - minio
+    - configure
+    - create-bucket
+
+- name: Set bucket policies
+  include_tasks: create_minio_policy.yml
+  when: CREATE_MINIO_POLICY | bool
+  tags:
+    - minio
+    - configure
+    - policy

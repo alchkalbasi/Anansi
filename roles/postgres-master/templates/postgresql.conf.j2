@@ -1,0 +1,59 @@
+# ============================================================
+# postgresql.conf (PRIMARY)
+# ============================================================
+
+listen_addresses = '{{ primary_ip }}'
+port = {{ postgres_master_port }}
+
+# ---------- Security ----------
+password_encryption = scram-sha-256
+ssl = {{ 'on' if enable_ssl else 'off' }}
+
+{% if enable_ssl %}
+ssl_cert_file = 'server.crt'
+ssl_key_file  = 'server.key'
+{% endif %}
+
+# ---------- Replication / WAL ----------
+wal_level = replica
+max_wal_senders = {{ max_wal_senders }}
+max_replication_slots = {{ max_replication_slots }}
+wal_keep_size = {{ wal_keep_size }}
+wal_compression = on
+
+{% if enable_archive %}
+archive_mode = on
+archive_command = 'test ! -f {{ wal_archive_dir }}/%f && cp %p {{ wal_archive_dir }}/%f'
+{% else %}
+archive_mode = off
+{% endif %}
+
+# ---------- Checkpoint tuning ----------
+checkpoint_timeout = '15min'
+max_wal_size = '8GB'
+min_wal_size = '1GB'
+
+# ---------- Logging ----------
+logging_collector = off
+log_line_prefix = '%m [%p] %u@%d %h '
+log_connections = on
+log_disconnections = on
+log_checkpoints = on
+log_lock_waits = on
+log_min_duration_statement = 2000
+
+cluster_name = '{{ postgres_master_hostname }}'
+
+# ---------- pg_hba ----------
+hba_file = '/etc/postgresql/pg_hba.conf'
+
+# ---------- Workers ----------
+max_worker_processes = {{ max_worker_processes }}
+max_parallel_workers_per_gather = {{ max_parallel_workers_per_gather }}
+max_parallel_workers = {{max_parallel_workers }}
+max_parallel_maintenance_workers = {{ max_parallel_maintenance_workers }} 
+
+# ---------- Memory ----------
+shared_buffers = {{ shared_buffers }}
+effective_cache_size = {{ effective_cache_size }}
+work_mem = {{ work_mem }}

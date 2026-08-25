@@ -1,0 +1,52 @@
+# Postgres-Slave Compose file
+
+networks:
+  prinet:
+    external: true
+    name: ${DOCKER_NETWORK_PRIVATE}
+
+services:
+  postgres-slave:
+    image: postgres:${POSTGRES_SLAVE_VERSION}
+    restart: ${RESTART_POLICY}
+    hostname: ${POSTGRES_SLAVE_HOSTNAME}
+    container_name: ${POSTGRES_SLAVE_CONTAINER_NAME}
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_SLAVE_PASSWORD}
+      # We don't need POSTGRES_USER or DB here because they are overwritten by the backup.
+    ports:
+      - "${POSTGRES_SLAVE_PORT}:5432"
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+      - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]    
+    networks:
+      - prinet
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_SLAVE_USER} -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '${POSTGRES_SLAVE_RESOURCE_CPUS}'
+          memory: ${POSTGRES_SLAVE_RESOURCE_MEMORY}
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:${POSTGRES_EXPORTER_TAG}
+    restart: ${RESTART_POLICY}
+    hostname: ${POSTGRES_EXPORTER_HOSTNAME}
+    container_name: ${POSTGRES_EXPORTER_CONTAINER_NAME}
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_EXPORTER_USER}:${POSTGRES_EXPORTER_PASSWORD}@${POSTGRES_SLAVE_CONTAINER_NAME}:5432/postgres?sslmode=disable"
+      EXTEND_COLLECTORS: "${EXTEND_COLLECTORS}"
+      DISABLE_COLLECTORS: "${DESABLE_COLLECTORS}"
+    ports:
+      - "${POSTGRES_EXPORTER_PORT}:9187"
+    networks:
+      - prinet
+    depends_on:
+      postgres-slave:
+        condition: service_healthy

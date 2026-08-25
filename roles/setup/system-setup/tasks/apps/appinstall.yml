@@ -1,0 +1,329 @@
+---
+# tasks/other-installation.yml
+
+- name: Install snapd
+  ansible.builtin.apt:
+    name: snapd
+    state: present
+    update_cache: true
+  become: true
+  when: setup_apps_install_snap | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-snapd
+
+- name: Ensure snapd service is enabled
+  ansible.builtin.systemd:
+    name: snapd
+    enabled: true
+    state: started
+  become: true
+  when: setup_apps_install_snap | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-snapd
+
+- name: Install snap packages
+  community.general.snap:
+    name: "{{ item.name }}"
+    state: present
+    classic: "{{ item.classic | default(false) }}"
+  loop: "{{ setup_apps_custom_snap }}"
+  become: true
+  when:
+    - setup_apps_install_custom | bool
+    - setup_apps_custom_snap is defined
+    - setup_apps_custom_snap | length > 0
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-custom-apps
+
+- name: Download Google Chrome .deb
+  ansible.builtin.get_url:
+    url: "{{ setup_apps_url_chrome }}"
+    dest: /tmp/google-chrome.deb
+    mode: "0644"
+  become: true
+  when:
+    - setup_apps_install_chrome | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-chrome
+
+- name: Install Google Chrome
+  ansible.builtin.apt:
+    deb: /tmp/google-chrome.deb
+    state: present
+  become: true
+  when:
+    - setup_apps_install_chrome | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-chrome
+
+- name: Remove Chrome installer
+  ansible.builtin.file:
+    path: /tmp/google-chrome.deb
+    state: absent
+  become: true
+  when:
+    - setup_apps_install_chrome | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-chrome
+
+- name: Download Nekoray .deb
+  ansible.builtin.get_url:
+    url: "{{ setup_apps_nekoray_url }}"
+    dest: /tmp/nekoray.deb
+    mode: "0644"
+  become: true
+  when:
+    - setup_apps_install_nekoray | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-nekoray
+
+- name: Install Nekoray
+  ansible.builtin.apt:
+    deb: /tmp/nekoray.deb
+    state: present
+  become: true
+  when:
+    - setup_apps_install_nekoray | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-nekoray
+
+- name: Remove Nekoray installer
+  ansible.builtin.file:
+    path: /tmp/nekoray.deb
+    state: absent
+  become: true
+  when:
+    - setup_apps_install_nekoray | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-nekoray
+
+- name: Create Winbox directory
+  ansible.builtin.file:
+    path: /opt/winbox
+    state: directory
+    mode: "0755"
+  become: true
+  when:
+    - setup_apps_install_winbox | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-winbox
+
+- name: Download Winbox binary
+  ansible.builtin.get_url:
+    url: "{{ setup_apps_winbox_url }}"
+    dest: /tmp/winbox.zip
+    mode: "0644"
+  become: true
+  when:
+    - setup_apps_install_winbox | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-winbox
+
+- name: Install unzip tool
+  ansible.builtin.apt:
+    name: unzip
+    state: present
+  become: true
+  when:
+    - setup_apps_install_winbox | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-winbox
+
+- name: Extract Winbox
+  ansible.builtin.unarchive:
+    src: /tmp/winbox.zip
+    dest: /opt/winbox
+    remote_src: true
+  become: true
+  when:
+    - setup_apps_install_winbox | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-winbox
+
+- name: Make Winbox executable
+  ansible.builtin.file:
+    path: /opt/winbox/WinBox
+    mode: "0755"
+  become: true
+  when:
+    - setup_apps_install_winbox | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-winbox
+
+- name: Remove Winbox archive
+  ansible.builtin.file:
+    path: /tmp/winbox.zip
+    state: absent
+  become: true
+  when:
+    - setup_apps_install_winbox | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-winbox
+
+- name: Create Winbox desktop entry
+  ansible.builtin.copy:
+    dest: /usr/share/applications/winbox.desktop
+    mode: "0644"
+    content: |
+      [Desktop Entry]
+      Name=Winbox
+      Comment=MikroTik RouterOS Winbox
+      Exec=/opt/winbox/WinBox
+      Icon=/opt/winbox/assets/img/winbox.png
+      Terminal=false
+      Type=Application
+      Categories=Network;Utility;
+  become: true
+  when:
+    - setup_apps_install_winbox | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-winbox
+
+- name: Ensure zsh is installed
+  ansible.builtin.apt:
+    name: zsh
+    state: present
+  become: true
+  when: setup_apps_install_oh_my_zsh | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-ohzsh
+
+- name: Check if Oh My Zsh is installed
+  ansible.builtin.stat:
+    path: "/home/{{ setup_user_name }}/.oh-my-zsh"
+  register: setup_ohmyzsh_check
+  become: true
+  when: setup_apps_install_oh_my_zsh | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-ohzsh
+
+- name: Download Oh My Zsh installer
+  ansible.builtin.get_url:
+    url: "{{ setup_apps_oh_my_zsh_url }}"
+    dest: /tmp/ohmyzsh-install.sh
+    mode: '0755'
+  become: true
+  when:
+    - setup_apps_install_oh_my_zsh | bool
+    - not setup_ohmyzsh_check.stat.exists
+  register: setup_ohmyzsh_download
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-ohzsh
+
+- name: Run Oh My Zsh installer
+  ansible.builtin.command:
+    cmd: sh /tmp/ohmyzsh-install.sh --unattended
+    creates: "/home/{{ setup_user_name }}/.oh-my-zsh"
+  become: true
+  become_user: "{{ setup_user_name }}"
+  when:
+    - setup_apps_install_oh_my_zsh | bool
+    - not setup_ohmyzsh_check.stat.exists
+    - setup_ohmyzsh_download is succeeded
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-ohzsh
+
+- name: Remove Oh My Zsh installer
+  ansible.builtin.file:
+    path: /tmp/ohmyzsh-install.sh
+    state: absent
+  become: true
+  when: setup_apps_install_oh_my_zsh | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-ohzsh
+
+- name: Install zsh-autosuggestions
+  ansible.builtin.git:
+    repo: "{{ setup_apps_zsh_autosuggestions_url }}"
+    dest: "/home/{{ setup_user_name }}/.oh-my-zsh/custom/plugins/zsh-autosuggestions"
+    depth: 1
+    version: "{{ setup_apps_zsh_autosuggestions_version }}"
+  become: true
+  become_user: "{{ setup_user_name }}"
+  when: setup_apps_install_zsh_plugins | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-ohzsh-plugs
+
+- name: Install zsh-syntax-highlighting
+  ansible.builtin.git:
+    repo: "{{ setup_apps_zsh_syntax_highlighting_url }}"
+    dest: "/home/{{ setup_user_name }}/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting"
+    depth: 1
+    version: "{{ setup_apps_zsh_syntax_highlighting_version }}"
+  become: true
+  become_user: "{{ setup_user_name }}"
+  when: setup_apps_install_zsh_plugins | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-ohzsh-plugs
+
+- name: Create vim autoload directory
+  ansible.builtin.file:
+    path: "/home/{{ setup_user_name }}/.vim/autoload"
+    state: directory
+    owner: "{{ setup_user_name }}"
+    group: "{{ setup_user_name }}"
+    mode: "0755"
+  become: true
+  when: setup_apps_install_vim_plugins | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-vim-plugs
+
+- name: Install vim-plug
+  ansible.builtin.get_url:
+    url: "{{ setup_apps_vim_plug_url }}"
+    dest: "/home/{{ setup_user_name }}/.vim/autoload/plug.vim"
+    mode: "0644"
+  become: true
+  when: setup_apps_install_vim_plugins | bool
+  tags:
+    - system-setup
+    - system-setup-install-apps
+    - system-setup-install-vim-plugs

@@ -1,0 +1,66 @@
+---
+# kubeval addon tasks (upstream only ships amd64/386 Linux binaries)
+
+- name: Warn when kubeval is unavailable for this architecture
+  ansible.builtin.debug:
+    msg: >-
+      kubeval only ships amd64/386 Linux binaries; skipping installation on
+      {{ ansible_facts['architecture'] }}.
+  when: ansible_facts['architecture'] != 'x86_64'
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kubeval
+
+- name: Download kubeval release archive
+  ansible.builtin.get_url:
+    url: "https://github.com/instrumenta/kubeval/releases/download/{{ kubectl_kubeval_version }}/kubeval-linux-amd64.tar.gz"
+    dest: /tmp/kubeval-linux-amd64.tar.gz
+    mode: '0644'
+  become: true
+  when: ansible_facts['architecture'] == 'x86_64'
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kubeval
+
+- name: Extract kubeval binary
+  ansible.builtin.unarchive:
+    src: /tmp/kubeval-linux-amd64.tar.gz
+    dest: /tmp
+    remote_src: true
+    include:
+      - kubeval
+  become: true
+  when: ansible_facts['architecture'] == 'x86_64'
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kubeval
+
+- name: Install kubeval binary
+  ansible.builtin.copy:
+    src: /tmp/kubeval
+    dest: /usr/local/bin/kubeval
+    mode: '0755'
+    remote_src: true
+  become: true
+  when: ansible_facts['architecture'] == 'x86_64'
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kubeval
+
+- name: Clean up kubeval download artifacts
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  become: true
+  loop:
+    - /tmp/kubeval-linux-amd64.tar.gz
+    - /tmp/kubeval
+  when: ansible_facts['architecture'] == 'x86_64'
+  tags:
+    - kubectl
+    - kubectl-addons
+    - kubectl-kubeval

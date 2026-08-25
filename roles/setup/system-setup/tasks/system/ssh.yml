@@ -1,0 +1,106 @@
+---
+# tasks/system/ssh.yml
+
+- name: Install OpenSSH packages
+  ansible.builtin.apt:
+    name:
+      - openssh-client
+      - openssh-server
+    state: present
+    update_cache: true
+  become: true
+  tags:
+    - system-setup
+    - system-setup-ssh-conf
+    - system-setup-install-ssh
+
+- name: Ensure .ssh directory exists
+  ansible.builtin.file:
+    path: "/home/{{ setup_user_name }}/.ssh"
+    state: directory
+    owner: "{{ setup_user_name }}"
+    group: "{{ setup_user_name }}"
+    mode: "0700"
+  become: true
+  tags:
+    - system-setup
+    - system-setup-ssh-conf
+    - system-setup-check-ssh-dir
+
+- name: Check if SSH private key exists
+  ansible.builtin.stat:
+    path: "/home/{{ setup_user_name }}/.ssh/{{ setup_ssh_key_name }}"
+  register: setup_ssh_private_key
+  become: true
+  tags:
+    - system-setup
+    - system-setup-ssh-conf
+    - system-setup-check-ssh-key
+
+- name: Generate SSH keypair
+  community.crypto.openssh_keypair:
+    path: "/home/{{ setup_user_name }}/.ssh/{{ setup_ssh_key_name }}"
+    type: "{{ setup_ssh_key_type }}"
+    owner: "{{ setup_user_name }}"
+    group: "{{ setup_user_name }}"
+    mode: "0600"
+    comment: "{{ setup_ssh_key_comment }}"
+  become: true
+  when:
+    - setup_ssh_generate_keys | bool
+    - not setup_ssh_private_key.stat.exists
+  tags:
+    - system-setup
+    - system-setup-ssh-conf
+    - system-setup-generate-key
+
+- name: Add authorized SSH keys
+  ansible.builtin.copy:
+    src: authorized_keys
+    dest: "/home/{{ setup_user_name }}/.ssh/authorized_keys"
+    owner: "{{ setup_user_name }}"
+    group: "{{ setup_user_name }}"
+    mode: "0600"
+  become: true
+  when:
+    - setup_ssh_auth_file | bool
+  tags:
+    - system-setup
+    - system-setup-ssh-conf
+    - system-setup-add-auth-file
+
+- name: Create SSH config file
+  ansible.builtin.copy:
+    src: ssh_config
+    dest: "/home/{{ setup_user_name }}/.ssh/config"
+    owner: "{{ setup_user_name }}"
+    group: "{{ setup_user_name }}"
+    mode: "0600"
+  become: true
+  when: setup_ssh_config_file | bool
+  tags:
+    - system-setup
+    - system-setup-ssh-conf
+    - system-setup-add-ssh-config
+
+- name: Ensure SSH service is enabled and started
+  ansible.builtin.service:
+    name: ssh
+    enabled: true
+    state: started
+  become: true
+  tags:
+    - system-setup
+    - system-setup-ssh-conf
+    - system-setup-ssh-enable
+
+- name: Ensure SSH daemon service is enabled and started
+  ansible.builtin.service:
+    name: sshd
+    enabled: true
+    state: started
+  become: true
+  tags:
+    - system-setup
+    - system-setup-ssh-conf
+    - system-setup-sshd-enable

@@ -1,0 +1,75 @@
+# Local Ansible state
+.ansible/
+*.retry
+ansible.log
+
+# Local environment and secret material
+.env
+.env.*
+!.env.example
+!.env.sample
+!*.env.j2
+.vault_pass
+.vault_pass.*
+vault-password*
+*.pem
+*.key
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Terraform/OpenTofu local state
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Docker and compose local overrides
+docker-compose.override.yml
+compose.override.yml
+
+# Logs, temporary files, and local caches
+*.log
+logs/
+tmp/
+temp/
+.cache/
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Codex workspace metadata
+.agents/
+.codex/

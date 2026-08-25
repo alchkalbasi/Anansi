@@ -1,0 +1,62 @@
+# default variables for nginx-docker
+
+project_dir: /opt/services
+service_dir: "{{ project_dir }}/nginx-docker"
+nginx_config_dir: "{{ service_dir }}/config"
+
+certbot_packages:
+  - certbot
+  - python3-certbot-nginx
+
+certbot_email: example@gmail.com
+
+subdomain: example
+domain: example.com
+
+nginx_config_type: proxypass
+
+# .env vars
+docker_networks:
+  - prinet
+  - pubnet
+nginx_docker_image: dhi.io/nginx:1
+nginx_restart_policy: unless-stopped
+nginx_hostname: nginx
+nginx_container_name: nginx
+
+# nginx.conf
+nginx_conf_user: nginx
+nginx_conf_worker_processes: auto
+nginx_conf_error_log_path: /var/log/nginx/error.log
+nginx_conf_error_level: notice
+nginx_conf_worker_connections: 1024
+nginx_conf_log_format: |
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+        '$status $body_bytes_sent "$http_referer" '
+        '"$http_user_agent" "$http_x_forwarded_for"'
+nginx_conf_log_name: main
+nginx_conf_access_log: /var/log/nginx/access.log
+nginx_conf_sendfile: true
+nginx_conf_ssl_session_timeout: 10m
+nginx_conf_ssl_session_cache: "shared:SSL:10m"
+nginx_conf_enable_rate_limit: true
+nginx_conf_limit_req_size: 5m
+nginx_conf_limit_req_rate: '5r/s'
+nginx_conf_enable_caching: true
+nginx_conf_proxy_cache_path: /var/cache/nginx
+nginx_conf_cache_size: '10m'
+nginx_conf_cache_max:  '500m'
+nginx_conf_cache_inactive:  '120m'
+nginx_conf_cache_use_temp_path: "off"
+nginx_conf_enable_gzip: true
+nginx_conf_gzip_level: 6
+nginx_conf_client_max_body: '16M'
+nginx_conf_keepalive_timeout: 60
+nginx_conf_ssl_key_public_path:  /etc/nginx/ssl/live/fullchain.pem
+nginx_conf_ssl_key_private_path: /etc/nginx/ssl/live/privkey.pem
+nginx_conf_server_name: localhost
+nginx_conf_proxy_pass: servername
+nginx_conf_limit_burst: 10
+nginx_conf_cache_valid: '10m'
+nginx_conf_enable_client_cache: true
+nginx_conf_client_cache_duration: 2d

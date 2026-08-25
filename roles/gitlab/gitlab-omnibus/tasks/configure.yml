@@ -1,0 +1,15 @@
+# Gitlab configuration tasks
+
+- name: Copy compose file with owner and permissions
+  ansible.builtin.copy:
+    src: compose.yml
+    dest: "{{ service_dir }}/compose.yml"
+  tags:
+    - compose-file
+
+- name: Template a file to path
+  ansible.builtin.template:
+    src: .env.j2
+    dest: "{{ service_dir }}/.env"
+  tags:
+    - env-file
