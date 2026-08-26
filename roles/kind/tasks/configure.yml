@@ -1,0 +1,26 @@
+---
+# kind configuration tasks
+
+- name: Create kind configuration directory
+  ansible.builtin.file:
+    path: "{{ kind_config_dir }}"
+    state: directory
+    owner: "{{ kind_config_owner }}"
+    group: "{{ kind_config_group }}"
+    mode: "{{ kind_config_dir_mode }}"
+  become: true
+  tags:
+    - kind
+    - kind-configure
+
+- name: Render kind cluster configuration
+  ansible.builtin.template:
+    src: kind-config.yml.j2
+    dest: "{{ kind_config_path }}"
+    owner: "{{ kind_config_owner }}"
+    group: "{{ kind_config_group }}"
+    mode: "{{ kind_config_mode }}"
+  become: true
+  tags:
+    - kind
+    - kind-configure

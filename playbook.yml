@@ -73,13 +73,20 @@
 #   tags:
 #     - system-setup
 
-- name: Install and configure kubectl
+# - name: Install and configure kubectl
+#   hosts: alch-hp
+#   gather_facts: true
+#   become: true
+#   roles:
+#     - role: kubectl
+#   tags:
+#     - kubectl
+
+- name: Install and configure kind
   hosts: alch-hp
   gather_facts: true
   become: true
   roles:
-    - role: kubectl
-      kubectl_target_users:
-        - ali
+    - role: kind
   tags:
-    - kubectl
+    - kind

@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: MIT-0
+---
+# tasks file for kind
+
+- name: Gather kind target facts
+  ansible.builtin.setup:
+    gather_subset:
+      - '!all'
+      - os_family
+      - distribution
+      - system
+      - hardware
+  tags:
+    - kind
+    - kind-check-distro
+    - kind-install
+    - kind-configure
+
+- name: Verify operating system is Debian or Ubuntu
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] == 'Debian'
+    fail_msg: >-
+      This role only supports Debian and Ubuntu.
+      Found: {{ ansible_facts.get('distribution', 'unknown') }}
+  tags:
+    - kind
+    - kind-check-distro
+    - kind-install
+    - kind-configure
+
+- name: Install kind
+  ansible.builtin.include_tasks: install.yml
+  tags:
+    - kind
+    - kind-install
+
+- name: Configure kind
+  ansible.builtin.include_tasks: configure.yml
+  tags:
+    - kind
+    - kind-configure

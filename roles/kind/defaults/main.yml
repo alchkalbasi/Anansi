@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: MIT-0
+---
+# defaults file for kind
+
+kind_arch_map:
+  x86_64: amd64
+  aarch64: arm64
+
+# kind binary installation
+kind_version: v0.32.0
+kind_install_dir: /usr/local/bin
+kind_binary_path: "{{ kind_install_dir }}/kind"
+kind_release_base_url: "https://github.com/kubernetes-sigs/kind/releases/download/{{ kind_version }}"
+kind_release_filename: "kind-linux-{{ kind_arch_map[ansible_facts['architecture']] }}"
+kind_download_url: "{{ kind_release_base_url }}/{{ kind_release_filename }}"
+kind_checksum_url: "{{ kind_download_url }}.sha256sum"
+
+# Rendered cluster configuration
+kind_config_dir: /etc/kind
+kind_config_path: "{{ kind_config_dir }}/kind-config.yml"
+kind_config_owner: root
+kind_config_group: root
+kind_config_dir_mode: '0755'
+kind_config_mode: '0644'
+
+# This mapping is rendered directly as Kind's cluster configuration. Override
+# the whole mapping or combine it with additional keys in inventory variables.
+kind_cluster_name: kind
+kind_apiserver_port: 6443
+kind_proxy_mode: iptables
+kind_cluster_config:
+  apiVersion: kind.x-k8s.io/v1alpha4
+  kind: Cluster
+  name: "{{ kind_cluster_name }}"
+  networking:
+    apiServerAddress: 127.0.0.1
+    apiServerPort: "{{ kind_apiserver_port }}"
+    kubeProxyMode: "{{ kind_proxy_mode }}"
+  nodes:
+    - role: control-plane
+      image: kindest/node:v1.16.4@sha256:b91a2c2317a000f3a783489dfb755064177dbc3a0b2f4147d50f04825d016f55
+    - role: control-plane
+      image: kindest/node:v1.16.4@sha256:b91a2c2317a000f3a783489dfb755064177dbc3a0b2f4147d50f04825d016f55
+    - role: control-plane
+      image: kindest/node:v1.16.4@sha256:b91a2c2317a000f3a783489dfb755064177dbc3a0b2f4147d50f04825d016f55
+    - role: worker
+      image: kindest/node:v1.16.4@sha256:b91a2c2317a000f3a783489dfb755064177dbc3a0b2f4147d50f04825d016f55
+    - role: worker
+      image: kindest/node:v1.16.4@sha256:b91a2c2317a000f3a783489dfb755064177dbc3a0b2f4147d50f04825d016f55
+    - role: worker
+      image: kindest/node:v1.16.4@sha256:b91a2c2317a000f3a783489dfb755064177dbc3a0b2f4147d50f04825d016f55

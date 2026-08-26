@@ -1,0 +1,39 @@
+---
+# kind installation tasks
+
+- name: Validate kind target platform
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['system'] == 'Linux'
+      - ansible_facts['architecture'] in kind_arch_map
+    fail_msg: >-
+      kind supports this role's target platforms only on Linux amd64 and arm64.
+      Found: {{ ansible_facts.get('system', 'unknown') }}/{{ ansible_facts.get('architecture', 'unknown') }}
+  tags:
+    - kind
+    - kind-install
+
+- name: Create kind installation directory
+  ansible.builtin.file:
+    path: "{{ kind_install_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+  tags:
+    - kind
+    - kind-install
+
+- name: Download kind binary
+  ansible.builtin.get_url:
+    url: "{{ kind_download_url }}"
+    dest: "{{ kind_binary_path }}"
+    checksum: "sha256:{{ kind_checksum_url }}"
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+  tags:
+    - kind
+    - kind-install
