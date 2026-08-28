@@ -1,3 +1,6 @@
+# prod inventory path
+./inventories/production
+
 # Local Ansible state
 .ansible/
 *.retry
