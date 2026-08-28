@@ -1,92 +1,92 @@
-# - name: Deploy RustFS
-#   hosts: rustfs-arvan
-#   gather_facts: true
-#   become: true
-#   roles:
-#     - rustFS
-#   tags:
-#     - rustfs
-
-# - name: Deploy InfluxDB
-#   hosts: influxdb-arvan
-#   gather_facts: true
-#   become: true
-#   roles:
-#     - observability/influxDB
-#   tags:
-#     - influxdb
-#     - observability
-
-# - name: Deploy Telegraf
-#   hosts: telegraf-arvan
-#   gather_facts: true
-#   become: true
-#   roles:
-#     - observability/telegraf-docker
-#   tags:
-#     - telegraf-docker
-#     - observability
-
-# - name: Deploy GitLab
-#   hosts: gitlab-arvan
-#   gather_facts: true
-#   become: true
-#   roles:
-#     - gitlab/gitlab-omnibus
-#   tags:
-#     - gitlab
-#     - omnibus
-
-# - name: Deploy GitLab Runner
-#   hosts: runner-arvan
-#   gather_facts: true
-#   become: true
-#   roles:
-#     - gitlab/gitlab-runner
-#   tags:
-#     - gitlab
-#     - runner
-
-# - name: Deploy Jitsi
-#   hosts: jitsti-server
-#   gather_facts: true
-#   become: true
-#   roles:
-#     - jitsi
-#   tags:
-#     - jitsi
-# - name: Deploy Confluence
-#   hosts: confluence-server
-#   gather_facts: true
-#   become: true
-#   roles:
-#     - confluence
-#   tags:
-#     - confluence
-
-# - name: Setup System Role
-#   hosts: alch-hp
-#   gather_facts: true
-#   become: true
-#   roles:
-#     - setup/system-setup
-#   tags:
-#     - system-setup
-
-# - name: Install and configure kubectl
-#   hosts: alch-hp
-#   gather_facts: true
-#   become: true
-#   roles:
-#     - role: kubectl
-#   tags:
-#     - kubectl
-
-- name: Install and configure kind
-  hosts: alch-hp
+- name: Deploy RustFS
+  hosts: localhost
   gather_facts: true
   become: true
   roles:
-    - role: kind
+    - rustFS
+  tags:
+    - rustfs
+
+- name: Deploy InfluxDB
+  hosts: localhost
+  gather_facts: true
+  become: true
+  roles:
+    - observability/influxDB
+  tags:
+    - influxdb
+    - observability
+
+- name: Deploy Telegraf
+  hosts: localhost
+  gather_facts: true
+  become: true
+  roles:
+    - observability/telegraf-docker
+  tags:
+    - telegraf-docker
+    - observability
+
+- name: Deploy GitLab
+  hosts: localhost
+  gather_facts: true
+  become: true
+  roles:
+    - gitlab/gitlab-omnibus
+  tags:
+    - gitlab
+    - omnibus
+
+- name: Deploy GitLab Runner
+  hosts: localhost
+  gather_facts: true
+  become: true
+  roles:
+    - gitlab/gitlab-runner
+  tags:
+    - gitlab
+    - runner
+
+- name: Deploy Jitsi
+  hosts: localhost
+  gather_facts: true
+  become: true
+  roles:
+    - jitsi
+  tags:
+    - jitsi
+- name: Deploy Confluence
+  hosts: localhost
+  gather_facts: true
+  become: true
+  roles:
+    - confluence
+  tags:
+    - confluence
+
+- name: Setup System Role
+  hosts: localhost
+  gather_facts: true
+  become: true
+  roles:
+    - setup/system-setup
+  tags:
+    - system-setup
+
+- name: Install and configure kubectl
+  hosts: localhost
+  gather_facts: true
+  become: true
+  roles:
+    - kubectl
+  tags:
+    - kubectl
+
+- name: Install and configure kind
+  hosts: localhost
+  gather_facts: true
+  become: true
+  roles:
+    - kind
   tags:
     - kind
