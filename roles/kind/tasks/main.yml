@@ -40,3 +40,10 @@
   tags:
     - kind
     - kind-configure
+
+- name: Create kind cluster
+  ansible.builtin.include_tasks: create-cluster.yml
+  when: kind_cluster_create | bool
+  tags:
+    - kind
+    - kind-cluster

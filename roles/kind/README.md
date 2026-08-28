@@ -1,8 +1,8 @@
 # kind
 
 Installs the Kind CLI and renders a Kind cluster configuration file from an
-Ansible variable through a Jinja2 template. This first step does not create or
-delete a cluster.
+Ansible variable through a Jinja2 template. Cluster creation is opt-in through
+`kind_cluster_create`.
 
 ## Requirements
 
@@ -20,6 +20,8 @@ delete a cluster.
   `/etc/kind/kind-config.yml`.
 - `kind_cluster_name`: name used by the default cluster configuration.
 - `kind_cluster_config`: complete mapping rendered as Kind configuration YAML.
+- `kind_cluster_create`: when `true`, create the configured cluster if it does
+  not already exist; defaults to `false`.
 
 For example, a cluster with one worker and a host port mapping can be defined
 as follows:
@@ -55,6 +57,16 @@ The rendered config can then be used explicitly:
 ```bash
 kind create cluster --config /etc/kind/kind-config.yml
 ```
+
+Alternatively, have the role create it by setting the following variable in
+the playbook or inventory:
+
+```yaml
+kind_cluster_create: true
+```
+
+The cluster task is idempotent and is available through the `kind-cluster`
+tag.
 
 ## License
 

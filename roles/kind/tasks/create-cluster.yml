@@ -1,0 +1,31 @@
+---
+# kind cluster lifecycle tasks
+
+- name: List existing kind clusters
+  ansible.builtin.command:
+    argv:
+      - "{{ kind_binary_path }}"
+      - get
+      - clusters
+  register: kind_existing_clusters
+  changed_when: false
+  become: true
+  tags:
+    - kind
+    - kind-cluster
+
+- name: Create configured kind cluster
+  ansible.builtin.command:
+    argv:
+      - "{{ kind_binary_path }}"
+      - create
+      - cluster
+      - --name
+      - "{{ kind_cluster_name }}"
+      - --config
+      - "{{ kind_config_path }}"
+  when: kind_cluster_name not in kind_existing_clusters.stdout_lines
+  become: true
+  tags:
+    - kind
+    - kind-cluster

@@ -23,6 +23,11 @@ kind_config_group: root
 kind_config_dir_mode: '0755'
 kind_config_mode: '0644'
 
+# Set to true to create the configured cluster after installing kind and
+# rendering its configuration. This is opt-in to avoid changing the role's
+# existing install-and-configure-only behaviour.
+kind_cluster_create: false
+
 # This mapping is rendered directly as Kind's cluster configuration. Override
 # the whole mapping or combine it with additional keys in inventory variables.
 kind_cluster_name: kind
