@@ -1,0 +1,61 @@
+---
+# minikube addon lifecycle tasks
+
+- name: List minikube addon statuses
+  ansible.builtin.command:
+    argv:
+      - "{{ minikube_binary_path }}"
+      - addons
+      - list
+      - --profile
+      - "{{ minikube_profile }}"
+      - --output
+      - json
+  environment:
+    MINIKUBE_HOME: "{{ minikube_effective_home }}"
+  register: minikube_addon_statuses
+  changed_when: false
+  become: true
+  become_user: "{{ minikube_effective_user }}"
+  when: minikube_enabled_addons | length > 0
+  tags:
+    - minikube
+    - minikube-cluster
+    - minikube-addon
+
+- name: Validate requested minikube addons
+  ansible.builtin.assert:
+    that:
+      - item in (minikube_addon_statuses.stdout | from_json)
+    fail_msg: >-
+      {{ item }} is not available for minikube profile {{ minikube_profile }}.
+      Run minikube addons list to see the available addons.
+  loop: "{{ minikube_enabled_addons }}"
+  when: minikube_enabled_addons | length > 0
+  tags:
+    - minikube
+    - minikube-cluster
+    - minikube-addon
+
+- name: Enable configured minikube addons
+  ansible.builtin.command:
+    argv:
+      - "{{ minikube_binary_path }}"
+      - addons
+      - enable
+      - "{{ item }}"
+      - --profile
+      - "{{ minikube_profile }}"
+  environment:
+    MINIKUBE_HOME: "{{ minikube_effective_home }}"
+  when:
+    - minikube_enabled_addons | length > 0
+    - (minikube_addon_statuses.stdout | from_json)[item].Status != 'enabled'
+  changed_when: true
+  become: true
+  become_user: "{{ minikube_effective_user }}"
+  loop: "{{ minikube_enabled_addons }}"
+  tags:
+    - minikube
+    - minikube-cluster
+    - minikube-addon

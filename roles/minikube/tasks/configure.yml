@@ -1,0 +1,60 @@
+---
+# minikube configuration tasks
+
+- name: Create minikube configuration directory
+  ansible.builtin.file:
+    path: "{{ minikube_effective_home }}"
+    state: directory
+    owner: "{{ minikube_effective_user }}"
+    group: "{{ minikube_user_account.ansible_facts.getent_passwd[minikube_effective_user][3] }}"
+    mode: "{{ minikube_config_dir_mode }}"
+  become: true
+  tags:
+    - minikube
+    - minikube-configure
+
+- name: Read configured minikube values
+  ansible.builtin.command:
+    argv:
+      - "{{ minikube_binary_path }}"
+      - config
+      - get
+      - "{{ item.key }}"
+  environment:
+    MINIKUBE_HOME: "{{ minikube_effective_home }}"
+  register: minikube_config_values
+  changed_when: false
+  failed_when: false
+  become: true
+  become_user: "{{ minikube_effective_user }}"
+  loop: "{{ minikube_config | dict2items }}"
+  tags:
+    - minikube
+    - minikube-configure
+
+- name: Set configured minikube values
+  ansible.builtin.command:
+    argv:
+      - "{{ minikube_binary_path }}"
+      - config
+      - set
+      - "{{ item.item.key }}"
+      - "{{ item.item.value | string }}"
+  environment:
+    MINIKUBE_HOME: "{{ minikube_effective_home }}"
+  when: item.rc != 0 or (item.stdout | trim) != (item.item.value | string)
+  changed_when: true
+  become: true
+  become_user: "{{ minikube_effective_user }}"
+  loop: "{{ minikube_config_values.results }}"
+  tags:
+    - minikube
+    - minikube-configure
+
+- name: Configure minikube shell completion
+  ansible.builtin.include_tasks: completion.yml
+  when: minikube_completion_enable | bool
+  tags:
+    - minikube
+    - minikube-configure
+    - minikube-completion

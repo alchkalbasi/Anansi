@@ -1,0 +1,100 @@
+# SPDX-License-Identifier: MIT-0
+---
+# tasks file for minikube
+
+- name: Gather minikube target facts
+  ansible.builtin.setup:
+    gather_subset:
+      - '!all'
+      - os_family
+      - distribution
+      - system
+      - hardware
+  tags:
+    - minikube
+    - minikube-check-distro
+    - minikube-install
+    - minikube-configure
+
+- name: Verify operating system is Debian or Ubuntu
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] == 'Debian'
+    fail_msg: >-
+      This role only supports Debian and Ubuntu.
+      Found: {{ ansible_facts.get('distribution', 'unknown') }}
+  tags:
+    - minikube
+    - minikube-check-distro
+    - minikube-install
+    - minikube-configure
+
+- name: Determine minikube default user
+  ansible.builtin.command:
+    argv:
+      - id
+      - -un
+  register: minikube_connection_user
+  changed_when: false
+  become: false
+  when: minikube_user | length == 0
+  tags:
+    - minikube
+    - minikube-install
+    - minikube-configure
+    - minikube-cluster
+    - minikube-completion
+
+- name: Select minikube user
+  ansible.builtin.set_fact:
+    minikube_effective_user: "{{ minikube_user if minikube_user | length > 0 else minikube_connection_user.stdout }}"
+  tags:
+    - minikube
+    - minikube-install
+    - minikube-configure
+    - minikube-cluster
+    - minikube-completion
+
+- name: Look up minikube user account
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ minikube_effective_user }}"
+  register: minikube_user_account
+  tags:
+    - minikube
+    - minikube-install
+    - minikube-configure
+    - minikube-cluster
+    - minikube-completion
+
+- name: Select minikube home directory
+  ansible.builtin.set_fact:
+    minikube_effective_home: >-
+      {{ minikube_home if minikube_home | length > 0 else
+      minikube_user_account.ansible_facts.getent_passwd[minikube_effective_user][4] }}
+  tags:
+    - minikube
+    - minikube-install
+    - minikube-configure
+    - minikube-cluster
+    - minikube-completion
+
+- name: Install minikube
+  ansible.builtin.include_tasks: install.yml
+  tags:
+    - minikube
+    - minikube-install
+
+- name: Configure minikube
+  ansible.builtin.include_tasks: configure.yml
+  tags:
+    - minikube
+    - minikube-configure
+    - minikube-completion
+
+- name: Create minikube cluster
+  ansible.builtin.include_tasks: create-cluster.yml
+  when: minikube_cluster_create | bool
+  tags:
+    - minikube
+    - minikube-cluster

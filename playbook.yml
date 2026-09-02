@@ -90,3 +90,12 @@
     - kind
   tags:
     - kind
+
+- name: Install and configure minikube
+  hosts: localhost
+  gather_facts: true
+  become: true
+  roles:
+    - minikube
+  tags:
+    - minikube

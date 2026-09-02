@@ -1,0 +1,66 @@
+---
+# minikube shell completion tasks
+
+- name: Select minikube completion users
+  ansible.builtin.set_fact:
+    minikube_completion_users: "{{ minikube_target_users if minikube_target_users | length > 0 else [minikube_effective_user] }}"
+  tags:
+    - minikube
+    - minikube-configure
+    - minikube-completion
+
+- name: Look up minikube target users' default shells
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ item }}"
+  register: minikube_target_user_accounts
+  loop: "{{ minikube_completion_users }}"
+  tags:
+    - minikube
+    - minikube-configure
+    - minikube-completion
+
+- name: Validate minikube target users' default shells
+  ansible.builtin.assert:
+    that:
+      - (item.ansible_facts.getent_passwd[item.item][5] | basename) in ['bash', 'zsh']
+    fail_msg: >-
+      The default shell for {{ item.item }} is
+      {{ item.ansible_facts.getent_passwd[item.item][5] }}; only bash and zsh
+      are supported for minikube shell completion.
+  loop: "{{ minikube_target_user_accounts.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  tags:
+    - minikube
+    - minikube-configure
+    - minikube-completion
+
+- name: Configure minikube completion for each user's default shell
+  ansible.builtin.blockinfile:
+    path: "{{ minikube_user_passwd_entry[4] }}/.{{ minikube_user_shell }}rc"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - minikube completion"
+    create: true
+    owner: "{{ item.item }}"
+    mode: '0644'
+    block: |
+      {% if minikube_user_shell == 'zsh' %}
+      if ! command -v compdef >/dev/null 2>&1; then
+        autoload -Uz compinit
+        compinit
+      fi
+      source <({{ minikube_binary_path }} completion zsh)
+      {% else %}
+      source <({{ minikube_binary_path }} completion bash)
+      {% endif %}
+  become: true
+  loop: "{{ minikube_target_user_accounts.results }}"
+  loop_control:
+    label: "{{ item.item }} ({{ minikube_user_shell }})"
+  vars:
+    minikube_user_passwd_entry: "{{ item.ansible_facts.getent_passwd[item.item] }}"
+    minikube_user_shell: "{{ minikube_user_passwd_entry[5] | basename }}"
+  tags:
+    - minikube
+    - minikube-configure
+    - minikube-completion

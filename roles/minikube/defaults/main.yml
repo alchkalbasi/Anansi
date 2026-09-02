@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: MIT-0
+---
+# defaults file for minikube
+
+minikube_arch_map:
+  x86_64: amd64
+  aarch64: arm64
+
+# minikube binary installation
+minikube_version: v1.37.0
+minikube_install_dir: /usr/local/bin
+minikube_binary_path: "{{ minikube_install_dir }}/minikube"
+minikube_release_base_url: "https://github.com/kubernetes/minikube/releases/download/{{ minikube_version }}"
+minikube_release_filename: "minikube-linux-{{ minikube_arch_map[ansible_facts['architecture']] }}"
+minikube_download_url: "{{ minikube_release_base_url }}/{{ minikube_release_filename }}"
+# SHA-256 values published in the Minikube v1.37.0 GitHub release notes.
+# Update this mapping whenever minikube_version changes.
+minikube_checksums:
+  amd64: d5cf561c71171152ff67d799f041ac0f65c235c87a1e9fc02a6a17b8226214d0
+  arm64: 32f95860fffbbc825be38d05888542f10d3d580fe4d138f4aad71339b8038fb1
+
+# Global minikube configuration. Leave these empty to use the Ansible
+# connection user and that user's home directory.
+minikube_user: ''
+minikube_home: ''
+minikube_config_dir_mode: '0755'
+minikube_config:
+  driver: docker
+
+# Users whose default shell receives Minikube completion. The login shell and
+# home directory are read from passwd rather than assumed. An empty list uses
+# the Ansible connection user.
+minikube_completion_enable: true
+minikube_target_users: [ali]
+
+# Set to true to create or start the configured profile after installing and
+# configuring minikube. This is opt-in because it creates local infrastructure.
+minikube_cluster_create: false
+minikube_profile: minikube
+minikube_driver: "{{ minikube_config.driver }}"
+minikube_kubernetes_version: stable
+minikube_enabled_addons:
+  - metrics-server
