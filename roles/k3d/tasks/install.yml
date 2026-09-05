@@ -1,0 +1,32 @@
+---
+# k3d installation tasks
+
+- name: Validate k3d target platform
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['system'] == 'Linux'
+      - ansible_facts['architecture'] in k3d_arch_map
+    fail_msg: >-
+      k3d supports this role's target platforms only on Linux amd64 and arm64.
+      Found: {{ ansible_facts.get('system', 'unknown') }}/{{ ansible_facts.get('architecture', 'unknown') }}
+  tags: [k3d, k3d-install]
+
+- name: Create k3d installation directory
+  ansible.builtin.file:
+    path: "{{ k3d_install_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+  tags: [k3d, k3d-install]
+
+- name: Download k3d binary
+  ansible.builtin.get_url:
+    url: "{{ k3d_download_url }}"
+    dest: "{{ k3d_binary_path }}"
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+  tags: [k3d, k3d-install]

@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: MIT-0
+---
+# tasks file for k3d
+
+- name: Gather k3d target facts
+  ansible.builtin.setup:
+    gather_subset:
+      - '!all'
+      - os_family
+      - distribution
+      - system
+      - hardware
+  tags: [k3d, k3d-check-distro, k3d-install, k3d-configure, k3d-cluster, k3d-completion]
+
+- name: Verify operating system is Debian or Ubuntu
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] == 'Debian'
+    fail_msg: >-
+      This role only supports Debian and Ubuntu.
+      Found: {{ ansible_facts.get('distribution', 'unknown') }}
+  tags: [k3d, k3d-check-distro, k3d-install, k3d-configure, k3d-cluster, k3d-completion]
+
+- name: Determine k3d default user
+  ansible.builtin.command:
+    argv: [id, -un]
+  register: k3d_connection_user
+  changed_when: false
+  check_mode: false
+  become: false
+  when: k3d_user | length == 0
+  tags: [k3d, k3d-install, k3d-configure, k3d-cluster, k3d-completion]
+
+- name: Select k3d user
+  ansible.builtin.set_fact:
+    k3d_effective_user: "{{ k3d_user if k3d_user | length > 0 else k3d_connection_user.stdout }}"
+  tags: [k3d, k3d-install, k3d-configure, k3d-cluster, k3d-completion]
+
+- name: Look up k3d user account
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ k3d_effective_user }}"
+  register: k3d_user_account
+  tags: [k3d, k3d-install, k3d-configure, k3d-cluster, k3d-completion]
+
+- name: Select k3d home directory
+  ansible.builtin.set_fact:
+    k3d_effective_home: >-
+      {{ k3d_home if k3d_home | length > 0 else
+      k3d_user_account.ansible_facts.getent_passwd[k3d_effective_user][4] }}
+  tags: [k3d, k3d-install, k3d-configure, k3d-cluster, k3d-completion]
+
+- name: Install k3d
+  ansible.builtin.include_tasks: install.yml
+  tags: [k3d, k3d-install]
+
+- name: Configure k3d
+  ansible.builtin.include_tasks: configure.yml
+  tags: [k3d, k3d-configure, k3d-completion]
+
+- name: Create k3d cluster
+  ansible.builtin.include_tasks: create-cluster.yml
+  when: k3d_cluster_create | bool
+  tags: [k3d, k3d-cluster]

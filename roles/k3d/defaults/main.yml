@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: MIT-0
+---
+# defaults file for k3d
+
+k3d_arch_map:
+  x86_64: amd64
+  aarch64: arm64
+
+# k3d binary installation
+k3d_version: v5.9.0
+k3d_install_dir: /usr/local/bin
+k3d_binary_path: "{{ k3d_install_dir }}/k3d"
+k3d_release_base_url: "https://github.com/k3d-io/k3d/releases/download/{{ k3d_version }}"
+k3d_release_filename: "k3d-linux-{{ k3d_arch_map[ansible_facts['architecture']] }}"
+k3d_download_url: "{{ k3d_release_base_url }}/{{ k3d_release_filename }}"
+
+# Cluster configuration is rendered from this mapping. The config format is
+# documented by k3d and can be overridden completely from inventory.
+k3d_config_dir: /etc/k3d
+k3d_config_path: "{{ k3d_config_dir }}/k3d-config.yml"
+k3d_config_owner: root
+k3d_config_group: root
+k3d_config_dir_mode: '0755'
+k3d_config_mode: '0644'
+
+# Leave these empty to use the Ansible connection user and that user's home.
+# That account owns the generated kubeconfig and runs k3d so Docker access is
+# controlled through its normal group membership.
+k3d_user: ''
+k3d_home: ''
+
+# Users whose default shell receives K3d completion. The login shell and home
+# directory are read from passwd rather than assumed. An empty list uses the
+# Ansible connection user. Bash and Zsh are supported.
+k3d_completion_enable: true
+k3d_target_users: []
+
+k3d_cluster_create: true
+k3d_cluster_name: k3d
+k3d_cluster_config:
+  apiVersion: k3d.io/v1alpha5
+  kind: Simple
+  metadata:
+    name: "{{ k3d_cluster_name }}"
+  servers: 1
+  agents: 1
+  kubeAPI:
+    hostIP: 127.0.0.1
+    hostPort: '6445'
+  options:
+    k3d:
+      wait: true
+    kubeconfig:
+      updateDefaultKubeconfig: true
+      switchCurrentContext: true

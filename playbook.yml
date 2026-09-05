@@ -99,3 +99,12 @@
     - minikube
   tags:
     - minikube
+
+- name: Install, configure, and create k3d cluster
+  hosts: localhost
+  gather_facts: true
+  become: true
+  roles:
+    - k3d
+  tags:
+    - k3d

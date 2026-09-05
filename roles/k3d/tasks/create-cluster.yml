@@ -1,0 +1,37 @@
+---
+# k3d cluster lifecycle tasks
+
+- name: List existing k3d clusters
+  ansible.builtin.command:
+    argv:
+      - "{{ k3d_binary_path }}"
+      - cluster
+      - list
+      - --output
+      - json
+  register: k3d_existing_clusters
+  changed_when: false
+  become: true
+  become_user: "{{ k3d_effective_user }}"
+  environment:
+    HOME: "{{ k3d_effective_home }}"
+  tags: [k3d, k3d-cluster]
+
+- name: Create configured k3d cluster
+  ansible.builtin.command:
+    argv:
+      - "{{ k3d_binary_path }}"
+      - cluster
+      - create
+      - --config
+      - "{{ k3d_config_path }}"
+  when: >-
+    k3d_cluster_name not in
+    (k3d_existing_clusters.stdout | from_json | map(attribute='name') | list)
+  changed_when: true
+  become: true
+  become_user: "{{ k3d_effective_user }}"
+  environment:
+    HOME: "{{ k3d_effective_home }}"
+    KUBECONFIG: "{{ k3d_effective_home }}/.kube/config"
+  tags: [k3d, k3d-cluster]

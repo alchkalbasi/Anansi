@@ -1,0 +1,55 @@
+---
+# k3d shell completion tasks
+
+- name: Select k3d completion users
+  ansible.builtin.set_fact:
+    k3d_completion_users: "{{ k3d_target_users if k3d_target_users | length > 0 else [k3d_effective_user] }}"
+  tags: [k3d, k3d-configure, k3d-completion]
+
+- name: Look up k3d target users' default shells
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ item }}"
+  register: k3d_target_user_accounts
+  loop: "{{ k3d_completion_users }}"
+  tags: [k3d, k3d-configure, k3d-completion]
+
+- name: Validate k3d target users' default shells
+  ansible.builtin.assert:
+    that:
+      - (item.ansible_facts.getent_passwd[item.item][5] | basename) in ['bash', 'zsh']
+    fail_msg: >-
+      The default shell for {{ item.item }} is
+      {{ item.ansible_facts.getent_passwd[item.item][5] }}; only bash and zsh
+      are supported for k3d shell completion.
+  loop: "{{ k3d_target_user_accounts.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  tags: [k3d, k3d-configure, k3d-completion]
+
+- name: Configure k3d completion for each user's default shell
+  ansible.builtin.blockinfile:
+    path: "{{ k3d_user_passwd_entry[4] }}/.{{ k3d_user_shell }}rc"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - k3d completion"
+    create: true
+    owner: "{{ item.item }}"
+    group: "{{ k3d_user_passwd_entry[3] }}"
+    mode: '0644'
+    block: |
+      {% if k3d_user_shell == 'zsh' %}
+      if ! command -v compdef >/dev/null 2>&1; then
+        autoload -Uz compinit
+        compinit
+      fi
+      source <({{ k3d_binary_path }} completion zsh)
+      {% else %}
+      source <({{ k3d_binary_path }} completion bash)
+      {% endif %}
+  become: true
+  loop: "{{ k3d_target_user_accounts.results }}"
+  loop_control:
+    label: "{{ item.item }} ({{ k3d_user_shell }})"
+  vars:
+    k3d_user_passwd_entry: "{{ item.ansible_facts.getent_passwd[item.item] }}"
+    k3d_user_shell: "{{ k3d_user_passwd_entry[5] | basename }}"
+  tags: [k3d, k3d-configure, k3d-completion]

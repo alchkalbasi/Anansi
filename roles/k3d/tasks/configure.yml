@@ -1,0 +1,27 @@
+---
+# k3d configuration tasks
+
+- name: Create k3d configuration directory
+  ansible.builtin.file:
+    path: "{{ k3d_config_dir }}"
+    state: directory
+    owner: "{{ k3d_config_owner }}"
+    group: "{{ k3d_config_group }}"
+    mode: "{{ k3d_config_dir_mode }}"
+  become: true
+  tags: [k3d, k3d-configure]
+
+- name: Render k3d cluster configuration
+  ansible.builtin.template:
+    src: k3d-config.yml.j2
+    dest: "{{ k3d_config_path }}"
+    owner: "{{ k3d_config_owner }}"
+    group: "{{ k3d_config_group }}"
+    mode: "{{ k3d_config_mode }}"
+  become: true
+  tags: [k3d, k3d-configure]
+
+- name: Configure k3d shell completion
+  ansible.builtin.include_tasks: completion.yml
+  when: k3d_completion_enable | bool
+  tags: [k3d, k3d-configure, k3d-completion]
