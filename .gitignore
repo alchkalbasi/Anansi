@@ -1,5 +1,5 @@
 # prod inventory path
-./inventories/production/
+inventories/
 
 # Local Ansible state
 .ansible/
