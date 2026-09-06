@@ -1,0 +1,21 @@
+---
+- name: Apply validated SSH configuration with timed rollback
+  linux_hardening_transaction:
+    kind: server
+    action: apply
+    directives: "{{ ssh_hardening_server_directives }}"
+    scopes: "{{ ssh_hardening_server_matches }}"
+    rollback_seconds: "{{ ssh_hardening_rollback_seconds }}"
+  register: ssh_hardening_transaction_result
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Verify fresh SSH authentication before committing
+  ansible.builtin.include_tasks: ssh_commit.yml
+  when:
+    - not ansible_check_mode
+    - ssh_hardening_transaction_result.token is defined
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh

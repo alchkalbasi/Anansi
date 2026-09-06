@@ -1,0 +1,22 @@
+---
+- name: Create selected key file parent directory
+  ansible.builtin.file:
+    path: "{{ ssh_hardening_key_file.path | dirname }}"
+    state: directory
+    owner: "{{ ssh_hardening_key_file.owner | default(\"root\") }}"
+    group: "{{ ssh_hardening_key_file.group | default(\"root\") }}"
+    mode: "{{ ssh_hardening_key_file.directory_mode | default(\"0755\") }}"
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Write explicitly enabled CA, revocation or principal file
+  ansible.builtin.copy:
+    dest: "{{ ssh_hardening_key_file.path }}"
+    content: "{{ ssh_hardening_key_file.lines | join('\n') }}\n"
+    owner: "{{ ssh_hardening_key_file.owner | default(\"root\") }}"
+    group: "{{ ssh_hardening_key_file.group | default(\"root\") }}"
+    mode: "{{ ssh_hardening_key_file.mode | default(\"0644\") }}"
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh

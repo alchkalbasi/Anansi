@@ -1,0 +1,50 @@
+---
+- name: Install Debian and Ubuntu SELinux management bindings on explicit request
+  ansible.builtin.apt:
+    name:
+      - python3-selinux
+      - python3-semanage
+      - policycoreutils-python-utils
+    state: present
+  when: ssh_hardening_selinux_install_packages is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Label explicitly selected SSH ports
+  community.general.seport:
+    ports: "{{ ssh_hardening_selinux_ports }}"
+    proto: tcp
+    setype: ssh_port_t
+    state: present
+  when: ssh_hardening_selinux_ports_enabled is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Inspect legacy SSH shadow-access policy only for explicit removal
+  ansible.builtin.command:
+    argv:
+      - semodule
+      - -l
+  changed_when: false
+  check_mode: false
+  register: ssh_hardening_selinux_modules
+  when: ssh_hardening_selinux_remove_password_policy is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Remove legacy direct shadow-access permission from SSH
+  ansible.builtin.command:
+    argv:
+      - semodule
+      - -r
+      - ssh_password
+  changed_when: true
+  when:
+    - ssh_hardening_selinux_remove_password_policy is sameas true
+    - ssh_hardening_selinux_modules.stdout is search('(?m)^ssh_password\s')
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh

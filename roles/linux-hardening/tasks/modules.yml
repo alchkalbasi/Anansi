@@ -1,0 +1,48 @@
+---
+- name: Read mounted filesystem types
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --noheadings
+      - --output
+      - FSTYPE
+  changed_when: false
+  check_mode: false
+  register: linux_hardening_used_filesystems
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Check EFI boot dependency
+  ansible.builtin.stat:
+    path: /sys/firmware/efi
+  register: linux_hardening_efi
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Reject disabling active filesystems or EFI storage
+  ansible.builtin.assert:
+    that:
+      - item.key not in linux_hardening_used_filesystems.stdout_lines
+      - item.key != 'vfat' or not linux_hardening_efi.stat.exists
+    fail_msg: Refusing to disable a mounted or boot-critical module.
+  loop: "{{ linux_hardening_modules | dict2items }}"
+  when: item.value is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Block explicitly selected modules on future loads
+  ansible.builtin.copy:
+    dest: "/etc/modprobe.d/linux-hardening-{{ item.key }}.conf"
+    content: "install {{ item.key }} /bin/false\nblacklist {{ item.key }}\n"
+    owner: root
+    group: root
+    mode: '0644'
+  loop: "{{ linux_hardening_modules | dict2items }}"
+  when: item.value is sameas true
+  notify: Linux hardening refresh initramfs
+  tags:
+    - linux-hardening
+    - linux-hardening-linux

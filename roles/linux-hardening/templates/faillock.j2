@@ -1,0 +1,10 @@
+# Managed by linux-hardening
+Name: faillock boilerplate
+Default: yes
+Priority: 1024
+Auth-Type: Primary
+Auth:
+  required           pam_faillock.so preauth
+Account-Type: Primary
+Account:
+  required           pam_faillock.so

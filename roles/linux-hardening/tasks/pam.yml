@@ -1,0 +1,133 @@
+---
+- name: Install password strength checker
+  ansible.builtin.apt:
+    name: libpam-passwdqc
+    state: present
+    policy_rc_d: 101
+  when: linux_hardening_pam_passwdqc is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Configure password strength profile
+  ansible.builtin.template:
+    src: passwdqc.j2
+    dest: /usr/share/pam-configs/passwdqc
+    owner: root
+    group: root
+    mode: '0644'
+  when: linux_hardening_pam_passwdqc is sameas true
+  notify: Linux hardening enable passwdqc
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Install faillock PAM module
+  ansible.builtin.apt:
+    name: libpam-modules
+    state: present
+  when: linux_hardening_pam_faillock is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Configure independently enabled faillock parameters
+  ansible.builtin.lineinfile:
+    path: /etc/security/faillock.conf
+    regexp: "^\\s*{{ item.key }}(?:\\s*=.*)?\\s*$"
+    line: "{{ item.key ~ (' = ' ~ item.value.value if item.value.value | string | length > 0 else '') }}"
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  loop: |-
+    {{ linux_hardening_faillock_settings | dict2items | selectattr('value.enabled', 'sameas', true)
+    | list }}
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Configure faillock PAM profiles
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/usr/share/pam-configs/{{ item }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - faillock
+    - faillock_authfail
+  when: linux_hardening_pam_faillock is sameas true
+  notify: Linux hardening enable faillock
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Keep key login available after password expiry
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/common-account
+    regexp: ^(account.*pam_unix.so(?!.*no_pass_expiry).*)$
+    line: \1 no_pass_expiry
+    backrefs: true
+  when: linux_hardening_pam_no_pass_expiry is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Select libuser password hashing if libuser is in use
+  community.general.ini_file:
+    path: /etc/libuser.conf
+    section: defaults
+    option: crypt_style
+    value: "{{ linux_hardening_libuser_hash_value }}"
+    mode: '0640'
+    owner: root
+    group: root
+  when: linux_hardening_libuser_hash is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Detect disabled passwdqc PAM integration
+  ansible.builtin.command:
+    argv:
+      - grep
+      - -Eq
+      - "{{ item.pattern }}"
+      - "{{ item.path }}"
+  loop:
+    - pattern: ^[^#].*pam_passwdqc\.so
+      path: /etc/pam.d/common-password
+  register: linux_hardening_passwdqc_integration
+  changed_when: linux_hardening_passwdqc_integration.rc == 1
+  failed_when: linux_hardening_passwdqc_integration.rc not in [0, 1]
+  check_mode: false
+  when: linux_hardening_pam_passwdqc is sameas true
+  notify: Linux hardening enable passwdqc
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Detect disabled faillock PAM integration
+  ansible.builtin.command:
+    argv:
+      - grep
+      - -Eq
+      - "{{ item.pattern }}"
+      - "{{ item.path }}"
+  loop:
+    - pattern: ^[^#].*pam_faillock\.so.*preauth
+      path: /etc/pam.d/common-auth
+    - pattern: ^[^#].*pam_faillock\.so.*authfail
+      path: /etc/pam.d/common-auth
+    - pattern: ^[^#].*pam_faillock\.so
+      path: /etc/pam.d/common-account
+  register: linux_hardening_faillock_integration
+  changed_when: linux_hardening_faillock_integration.rc == 1
+  failed_when: linux_hardening_faillock_integration.rc not in [0, 1]
+  check_mode: false
+  when: linux_hardening_pam_faillock is sameas true
+  notify: Linux hardening enable faillock
+  tags:
+    - linux-hardening
+    - linux-hardening-linux

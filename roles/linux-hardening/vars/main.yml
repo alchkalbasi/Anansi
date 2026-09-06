@@ -1,0 +1,4 @@
+---
+# Fixed Debian/Ubuntu paths. User-configurable values belong in defaults/main.yml.
+linux_hardening_ssh_service: ssh
+linux_hardening_nologin: /usr/sbin/nologin

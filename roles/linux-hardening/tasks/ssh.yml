@@ -1,0 +1,178 @@
+---
+- name: Check SSH transaction verification window
+  ansible.builtin.assert:
+    that:
+      - ssh_hardening_rollback_seconds | int > ssh_hardening_connection_test_timeout | int + 60
+    fail_msg: SSH rollback timeout must exceed the connection test timeout by at least 60 seconds.
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Apply optional SSH SELinux controls
+  ansible.builtin.import_tasks: ssh_selinux.yml
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Install OpenSSH server only on explicit request
+  ansible.builtin.apt:
+    name: openssh-server
+    state: present
+    policy_rc_d: 101
+  when: ssh_hardening_install_server is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Install OpenSSH client only on explicit request
+  ansible.builtin.apt:
+    name: openssh-client
+    state: present
+  when: ssh_hardening_install_client is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Enable SSH service on explicit request
+  ansible.builtin.systemd_service:
+    name: "{{ linux_hardening_ssh_service }}"
+    state: started
+    enabled: true
+  when: ssh_hardening_enable_service is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Manage explicitly selected public key and principal files
+  ansible.builtin.include_tasks: ssh_key_file.yml
+  loop: "{{ ssh_hardening_key_files }}"
+  loop_control:
+    loop_var: ssh_hardening_key_file
+    label: "{{ ssh_hardening_key_file.path }}"
+  when: ssh_hardening_key_file.enabled is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Ensure RSA host key meets selected size
+  community.crypto.openssh_keypair:
+    path: /etc/ssh/ssh_host_rsa_key
+    type: rsa
+    size: "{{ ssh_hardening_rsa_key_size }}"
+    regenerate: partial_idempotence
+    owner: root
+    group: root
+    mode: '0600'
+  notify: Linux hardening reload SSH keys
+  when: ssh_hardening_regenerate_rsa_key is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Find installed private host keys
+  ansible.builtin.find:
+    paths: /etc/ssh
+    patterns: ssh_host_*_key
+    file_type: file
+  register: ssh_hardening_private_keys
+  when: ssh_hardening_host_key_permissions is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Protect existing private host keys
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: root
+    group: root
+    mode: '0600'
+  loop: "{{ ssh_hardening_private_keys.files }}"
+  when: ssh_hardening_host_key_permissions is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Remove weak Diffie-Hellman moduli
+  linux_hardening_moduli:
+    path: /etc/ssh/moduli
+    minimum: "{{ ssh_hardening_moduli_minimum }}"
+  when: ssh_hardening_filter_moduli is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Disable PAM SSH message of the day
+  community.general.pamd:
+    name: sshd
+    type: session
+    control: optional
+    module_path: pam_motd.so
+    state: absent
+    backup: true
+  when: ssh_hardening_disable_pam_motd is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Protect SSH server configuration permissions
+  ansible.builtin.file:
+    path: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: '0600'
+  when: ssh_hardening_server_config_permissions is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Copy SSH login banner
+  ansible.builtin.copy:
+    src: "{{ ssh_hardening_banner_src }}"
+    dest: "{{ ssh_hardening_server_directives.Banner.value }}"
+    owner: root
+    group: root
+    mode: '0644'
+  when:
+    - ssh_hardening_banner_src | length > 0
+    - ssh_hardening_server_directives.Banner is defined
+    - ssh_hardening_server_directives.Banner.enabled is sameas true
+    - ssh_hardening_server_directives.Banner.value != 'none'
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Validate desired SSH server configuration
+  linux_hardening_transaction:
+    kind: server
+    action: plan
+    directives: "{{ ssh_hardening_server_directives }}"
+    scopes: "{{ ssh_hardening_server_matches }}"
+  when: ssh_hardening_server_directives.values() | selectattr('enabled', 'sameas', true) | list | length > 0 or
+    ssh_hardening_server_matches | selectattr('enabled', 'sameas', true) | list | length > 0
+  notify: Linux hardening apply SSH transaction
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Protect SSH client configuration permissions
+  ansible.builtin.file:
+    path: /etc/ssh/ssh_config
+    owner: root
+    group: root
+    mode: '0644'
+  when: ssh_hardening_client_config_permissions is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Validate desired SSH client configuration
+  linux_hardening_transaction:
+    kind: client
+    action: apply
+    directives: "{{ ssh_hardening_client_directives }}"
+    scopes: "{{ ssh_hardening_client_hosts }}"
+  when: ssh_hardening_client_directives.values() | selectattr('enabled', 'sameas', true) | list | length > 0 or
+    ssh_hardening_client_hosts | selectattr('enabled', 'sameas', true) | list | length > 0
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh

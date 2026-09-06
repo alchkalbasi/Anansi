@@ -1,0 +1,126 @@
+---
+- name: Require a watchdog-capable systemd host
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.service_mgr == 'systemd'
+      - iptables_hardening_rollback_seconds | int > iptables_hardening_connection_test_timeout | int + 60
+    fail_msg: Firewall transactions require systemd and enough time for connection verification.
+  tags:
+    - linux-hardening
+    - linux-hardening-iptables
+
+- name: Require ICMPv6 for restrictive IPv6 host policies
+  ansible.builtin.assert:
+    that:
+      - iptables_hardening_allow_icmp is sameas true
+    fail_msg: Explicitly enable ICMP for IPv6 neighbor discovery and path MTU before dropping input or output.
+  when:
+    - iptables_hardening_ipv6_enabled is sameas true
+    - (iptables_hardening_default_input_policy_enabled is sameas true and iptables_hardening_default_input_policy
+      == 'DROP') or (iptables_hardening_default_output_policy_enabled is sameas true and iptables_hardening_default_output_policy
+      == 'DROP')
+  tags:
+    - linux-hardening
+    - linux-hardening-iptables
+
+- name: Require explicit SSH protection for remote firewall changes
+  ansible.builtin.assert:
+    that:
+      - iptables_hardening_allow_ssh is sameas true
+      - iptables_hardening_allow_established is sameas true
+      - iptables_hardening_ssh_port | int == ansible_port | default(22) | int
+    fail_msg: Enable SSH and established/related allowances and set the current management port before applying
+      remote firewall changes.
+  when: ansible_connection | default('ssh') != 'local'
+  tags:
+    - linux-hardening
+    - linux-hardening-iptables
+
+- name: Disable package installer automatic IPv4 and IPv6 saves
+  ansible.builtin.debconf:
+    name: iptables-persistent
+    question: "iptables-persistent/autosave_{{ item }}"
+    value: 'false'
+    vtype: boolean
+  loop:
+    - v4
+    - v6
+  when:
+    - iptables_hardening_install_packages is sameas true
+    - iptables_hardening_persistent is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-iptables
+
+- name: Install requested iptables tooling without package service activation
+  ansible.builtin.apt:
+    name: >-
+      {{ ['iptables'] + (['iptables-persistent'] if iptables_hardening_persistent is sameas true else
+
+      []) }}
+    state: present
+    policy_rc_d: 101
+  when: iptables_hardening_install_packages is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-iptables
+
+- name: Create persistent rules directory only when requested
+  ansible.builtin.file:
+    path: /etc/iptables
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: iptables_hardening_persistent is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-iptables
+
+- name: Build validate and apply enabled firewall controls with rollback
+  linux_hardening_transaction:
+    kind: firewall
+    action: apply
+    fragments: >-
+      {{ ({'iptables': lookup('ansible.builtin.template', 'iptables.rules.j2')} if
+
+      iptables_hardening_ipv4_enabled is sameas true else {}) | combine({'ip6tables':
+
+      lookup('ansible.builtin.template', 'ip6tables.rules.j2')} if iptables_hardening_ipv6_enabled is
+
+      sameas true else {}) }}
+    policies:
+      INPUT:
+        enabled: "{{ iptables_hardening_default_input_policy_enabled }}"
+        value: "{{ iptables_hardening_default_input_policy }}"
+      OUTPUT:
+        enabled: "{{ iptables_hardening_default_output_policy_enabled }}"
+        value: "{{ iptables_hardening_default_output_policy }}"
+      FORWARD:
+        enabled: "{{ iptables_hardening_default_forward_policy_enabled }}"
+        value: "{{ iptables_hardening_default_forward_policy }}"
+    persistent: "{{ iptables_hardening_persistent }}"
+    rollback_seconds: "{{ iptables_hardening_rollback_seconds }}"
+  register: iptables_hardening_transaction_result
+  when: iptables_hardening_ipv4_enabled is sameas true or iptables_hardening_ipv6_enabled is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-iptables
+
+- name: Verify and persist successful firewall transaction
+  ansible.builtin.include_tasks: iptables_commit.yml
+  when:
+    - not ansible_check_mode
+    - iptables_hardening_transaction_result.token is defined
+  tags:
+    - linux-hardening
+    - linux-hardening-iptables
+
+- name: Enable persistence on boot without loading rules again
+  ansible.builtin.systemd_service:
+    name: netfilter-persistent
+    enabled: true
+  when: iptables_hardening_persistent is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-iptables

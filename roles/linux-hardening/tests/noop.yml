@@ -1,0 +1,7 @@
+---
+- name: Verify that the default role does not change the host
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  roles:
+    - role: linux-hardening

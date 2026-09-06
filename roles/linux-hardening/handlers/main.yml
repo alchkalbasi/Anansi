@@ -1,0 +1,88 @@
+---
+- name: Linux hardening apply SSH transaction
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/ssh_apply.yml"
+
+- name: Linux hardening validate SSH keys
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/sshd
+      - -t
+  changed_when: false
+  listen: Linux hardening reload SSH keys
+
+- name: Linux hardening reload SSH service for changed keys
+  ansible.builtin.systemd_service:
+    name: ssh
+    state: reloaded
+  listen: Linux hardening reload SSH keys
+
+- name: Linux hardening restart auditd
+  ansible.builtin.systemd_service:
+    name: auditd
+    state: restarted
+
+- name: Linux hardening restart journald
+  ansible.builtin.systemd_service:
+    name: systemd-journald
+    state: restarted
+
+- name: Linux hardening refresh initramfs
+  ansible.builtin.command:
+    argv:
+      - update-initramfs
+      - -u
+  changed_when: true
+  when: linux_hardening_refresh_initramfs is sameas true
+
+- name: Linux hardening enable passwdqc
+  ansible.builtin.command:
+    argv:
+      - pam-auth-update
+      - --enable
+      - passwdqc
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+  changed_when: true
+
+- name: Linux hardening enable faillock
+  ansible.builtin.command:
+    argv:
+      - pam-auth-update
+      - --enable
+      - faillock
+      - faillock_authfail
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+  changed_when: true
+
+- name: Linux hardening verify active passwdqc integration
+  ansible.builtin.command:
+    argv:
+      - grep
+      - -Eq
+      - "{{ item.pattern }}"
+      - "{{ item.path }}"
+  loop:
+    - pattern: ^[^#].*pam_passwdqc\.so
+      path: /etc/pam.d/common-password
+  changed_when: false
+  when: not ansible_check_mode
+  listen: Linux hardening enable passwdqc
+
+- name: Linux hardening verify active faillock integration
+  ansible.builtin.command:
+    argv:
+      - grep
+      - -Eq
+      - "{{ item.pattern }}"
+      - "{{ item.path }}"
+  loop:
+    - pattern: ^[^#].*pam_faillock\.so.*preauth
+      path: /etc/pam.d/common-auth
+    - pattern: ^[^#].*pam_faillock\.so.*authfail
+      path: /etc/pam.d/common-auth
+    - pattern: ^[^#].*pam_faillock\.so
+      path: /etc/pam.d/common-account
+  changed_when: false
+  when: not ansible_check_mode
+  listen: Linux hardening enable faillock

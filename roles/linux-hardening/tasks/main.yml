@@ -1,0 +1,53 @@
+---
+- name: Require supported Debian or Ubuntu host facts
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution | default('') in ['Debian', 'Ubuntu']
+      - ansible_facts.distribution_version is version('12', '>=') if ansible_facts.distribution == 'Debian' else
+        ansible_facts.distribution_version is version('22.04', '>=')
+    fail_msg: 'Gather distribution facts first. Supported: Debian 12+ and Ubuntu 22.04+.'
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+    - linux-hardening-ssh
+    - linux-hardening-iptables
+
+- name: Validate strict boolean switches and nested control schemas
+  linux_hardening_validate:
+    settings: >-
+      {{ dict(lookup('ansible.builtin.varnames',
+      '^(linux_hardening_|ssh_hardening_|iptables_hardening_)', wantlist=True) |
+      zip(lookup('ansible.builtin.vars', *lookup('ansible.builtin.varnames',
+      '^(linux_hardening_|ssh_hardening_|iptables_hardening_)', wantlist=True), wantlist=True))) }}
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+    - linux-hardening-ssh
+    - linux-hardening-iptables
+
+- name: Apply Linux controls
+  ansible.builtin.import_tasks: linux.yml
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Apply SSH controls
+  ansible.builtin.import_tasks: ssh.yml
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Complete SSH transaction before changing firewall
+  ansible.builtin.meta: flush_handlers
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+    - linux-hardening-ssh
+    - linux-hardening-iptables
+
+- name: Apply iptables controls
+  ansible.builtin.include_tasks: iptables.yml
+  when: iptables_hardening_enabled is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-iptables

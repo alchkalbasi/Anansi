@@ -1,0 +1,55 @@
+---
+- name: Create core dump configuration directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - /etc/security/limits.d
+    - /etc/systemd/coredump.conf.d
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Disable hard and soft core limits
+  ansible.builtin.copy:
+    dest: /etc/security/limits.d/90-linux-hardening-core.conf
+    content: |
+      * hard core 0
+      * soft core 0
+      root hard core 0
+      root soft core 0
+    owner: root
+    group: root
+    mode: '0440'
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Disable systemd core storage and processing
+  ansible.builtin.copy:
+    dest: /etc/systemd/coredump.conf.d/90-linux-hardening.conf
+    content: |
+      [Coredump]
+      Storage=none
+      ProcessSizeMax=0
+    owner: root
+    group: root
+    mode: '0644'
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Disable core dumps in login shells
+  ansible.builtin.copy:
+    dest: /etc/profile.d/linux-hardening-core.sh
+    content: |
+      ulimit -S -c 0 >/dev/null 2>&1
+    owner: root
+    group: root
+    mode: '0644'
+  tags:
+    - linux-hardening
+    - linux-hardening-linux

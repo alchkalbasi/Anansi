@@ -1,0 +1,40 @@
+---
+- name: Select configured SSH port for fresh Ansible connection
+  ansible.builtin.set_fact:
+    ansible_port: >-
+      {{ (ssh_hardening_server_directives.Port.value[0]
+          if ssh_hardening_server_directives.Port.value is sequence
+          and ssh_hardening_server_directives.Port.value is not string
+          else ssh_hardening_server_directives.Port.value) }}
+  when:
+    - ssh_hardening_server_directives.Port is defined
+    - ssh_hardening_server_directives.Port.enabled is sameas true
+    - ssh_hardening_server_directives.Port.value != []
+    - ssh_hardening_server_directives.Port.value != ''
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Close cached connection to hardened SSH server
+  ansible.builtin.meta: reset_connection
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Prove a new authenticated connection
+  ansible.builtin.wait_for_connection:
+    timeout: "{{ ssh_hardening_connection_test_timeout }}"
+    connect_timeout: 5
+    sleep: 2
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh
+
+- name: Commit SSH configuration and cancel watchdog
+  linux_hardening_transaction:
+    kind: server
+    action: commit
+    token: "{{ ssh_hardening_transaction_result.token }}"
+  tags:
+    - linux-hardening
+    - linux-hardening-ssh

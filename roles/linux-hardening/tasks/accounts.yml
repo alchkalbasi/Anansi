@@ -1,0 +1,169 @@
+---
+- name: Read local accounts without LDAP enumeration
+  ansible.builtin.getent:
+    database: passwd
+    service: files
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Remove .rhosts from local user homes
+  ansible.builtin.file:
+    path: "{{ item.value[4] }}/.rhosts"
+    state: absent
+  loop: "{{ ansible_facts.getent_passwd | dict2items }}"
+  when:
+    - linux_hardening_remove_rhosts is sameas true
+  loop_control:
+    label: "{{ item.key }}"
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Remove .netrc from local user homes
+  ansible.builtin.file:
+    path: "{{ item.value[4] }}/.netrc"
+    state: absent
+  loop: "{{ ansible_facts.getent_passwd | dict2items }}"
+  when:
+    - linux_hardening_remove_netrc is sameas true
+    - item.key not in linux_hardening_netrc_users_exempt
+  loop_control:
+    label: "{{ item.key }}"
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Remove system account login shells
+  ansible.builtin.user:
+    name: "{{ item.key }}"
+    create_home: false
+    shell: "{{ linux_hardening_nologin }}"
+  loop: "{{ ansible_facts.getent_passwd | dict2items }}"
+  when:
+    - linux_hardening_system_account_shells is sameas true
+    - item.value[1] | int > 0
+    - item.value[1] | int <= linux_hardening_system_uid_max
+    - item.key not in linux_hardening_users_exempt
+  loop_control:
+    label: "{{ item.key }}"
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Lock system account passwords
+  ansible.builtin.user:
+    name: "{{ item.key }}"
+    create_home: false
+    password_lock: true
+  loop: "{{ ansible_facts.getent_passwd | dict2items }}"
+  when:
+    - linux_hardening_system_account_lock is sameas true
+    - item.value[1] | int > 0
+    - item.value[1] | int <= linux_hardening_system_uid_max
+    - item.key not in linux_hardening_users_exempt
+  loop_control:
+    label: "{{ item.key }}"
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Remove duplicate UID zero accounts
+  ansible.builtin.user:
+    name: "{{ item.key }}"
+    create_home: false
+    state: absent
+  loop: "{{ ansible_facts.getent_passwd | dict2items }}"
+  when:
+    - linux_hardening_remove_duplicate_root is sameas true
+    - item.value[1] | int == 0
+    - item.key != 'root'
+  loop_control:
+    label: "{{ item.key }}"
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Restrict user home permissions
+  ansible.builtin.file:
+    path: "{{ item.value[4] }}"
+    state: directory
+    mode: '0750'
+    owner: "{{ item.key }}"
+  loop: "{{ ansible_facts.getent_passwd | dict2items }}"
+  when:
+    - linux_hardening_user_home_permissions is sameas true
+    - item.key not in linux_hardening_home_users_exempt
+    - item.value[1] | int >= linux_hardening_uid_min
+    - item.value[1] | int <= linux_hardening_uid_max
+    - item.key not in linux_hardening_users_exempt
+  loop_control:
+    label: "{{ item.key }}"
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Restrict root home permissions
+  ansible.builtin.file:
+    path: "{{ item.value[4] }}"
+    state: directory
+    mode: '0700'
+    owner: "{{ item.key }}"
+  loop: "{{ ansible_facts.getent_passwd | dict2items }}"
+  when:
+    - linux_hardening_root_home_permissions is sameas true
+    - item.key not in linux_hardening_home_users_exempt
+    - item.value[1] | int == 0
+  loop_control:
+    label: "{{ item.key }}"
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Read local password metadata only for ageing controls
+  ansible.builtin.getent:
+    database: shadow
+    service: files
+  when: linux_hardening_user_password_ageing is sameas true or linux_hardening_root_password_ageing is sameas true
+  no_log: true
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Set user password ageing
+  ansible.builtin.user:
+    name: "{{ item.key }}"
+    password_expire_min: "{{ linux_hardening_password_min_age }}"
+    password_expire_max: "{{ linux_hardening_password_max_age }}"
+    password_expire_warn: "{{ linux_hardening_password_warn_age }}"
+  loop: "{{ ansible_facts.getent_passwd | dict2items }}"
+  when:
+    - linux_hardening_user_password_ageing is sameas true
+    - item.key not in linux_hardening_age_users_exempt
+    - item.key in ansible_facts.getent_shadow
+    - ansible_facts.getent_shadow[item.key][0] is not match('^[!*]')
+    - item.value[1] | int >= linux_hardening_uid_min
+    - item.value[1] | int <= linux_hardening_uid_max
+    - item.key not in linux_hardening_users_exempt
+  no_log: true
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Set root password ageing
+  ansible.builtin.user:
+    name: "{{ item.key }}"
+    password_expire_min: "{{ linux_hardening_password_min_age }}"
+    password_expire_max: "{{ linux_hardening_password_max_age }}"
+    password_expire_warn: "{{ linux_hardening_password_warn_age }}"
+  loop: "{{ ansible_facts.getent_passwd | dict2items }}"
+  when:
+    - linux_hardening_root_password_ageing is sameas true
+    - item.key not in linux_hardening_age_users_exempt
+    - item.key in ansible_facts.getent_shadow
+    - ansible_facts.getent_shadow[item.key][0] is not match('^[!*]')
+    - item.value[1] | int == 0
+  no_log: true
+  tags:
+    - linux-hardening
+    - linux-hardening-linux

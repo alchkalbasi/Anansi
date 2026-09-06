@@ -1,0 +1,4 @@
+Derived from dev-sec/ansible-collection-hardening os_hardening and ssh_hardening.
+Upstream commit: 3102eddbd116c5f8c1581aca543d372dbc326764
+Copyright the dev-sec contributors. Licensed under Apache-2.0.
+Modified for Debian/Ubuntu only, explicit opt-in control, and transactional iptables/OpenSSH changes.

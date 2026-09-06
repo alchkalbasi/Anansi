@@ -1,0 +1,51 @@
+# Only enabled controls appear; an empty enabled group clears that group's former rules.
+{% if iptables_hardening_drop_invalid is sameas true %}
+# control:drop_invalid
+{% for chain in ['INPUT', 'OUTPUT', 'FORWARD'] %}
+-A {{ chain }} -m conntrack --ctstate INVALID -j DROP
+{% endfor %}
+{% endif %}
+{% if iptables_hardening_anti_spoofing is sameas true %}
+# control:anti_spoofing
+-A INPUT ! -i lo -s {{ '::1/128' if ipv6 else '127.0.0.0/8' }} -j DROP
+-A INPUT -s {{ 'ff00::/8' if ipv6 else '224.0.0.0/4' }} -j DROP
+{% endif %}
+{% if iptables_hardening_allow_loopback is sameas true %}
+# control:allow_loopback
+-A INPUT -i lo -j ACCEPT
+-A OUTPUT -o lo -j ACCEPT
+{% endif %}
+{% if iptables_hardening_allow_established is sameas true %}
+# control:allow_established
+{% for chain in ['INPUT', 'OUTPUT', 'FORWARD'] %}
+-A {{ chain }} -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+{% endfor %}
+{% endif %}
+{% if iptables_hardening_allow_ssh is sameas true %}
+# control:allow_ssh
+-A INPUT -p tcp --dport {{ iptables_hardening_ssh_port }} -m conntrack --ctstate NEW -j ACCEPT
+{% endif %}
+{% if iptables_hardening_allow_icmp is sameas true %}
+# control:allow_icmp
+{% for chain in ['INPUT', 'OUTPUT'] %}
+-A {{ chain }} -p {{ 'ipv6-icmp' if ipv6 else 'icmp' }} -j ACCEPT
+{% endfor %}
+{% endif %}
+{% for name, enabled, ports, chain, protocol in [
+ ('custom_tcp', iptables_hardening_allow_custom_tcp_ports, iptables_hardening_tcp_ports, 'INPUT', 'tcp'),
+ ('custom_udp', iptables_hardening_allow_custom_udp_ports, iptables_hardening_udp_ports, 'INPUT', 'udp'),
+ ('outbound_tcp', iptables_hardening_allow_outbound_tcp_ports, iptables_hardening_outbound_tcp_ports, 'OUTPUT', 'tcp'),
+ ('outbound_udp', iptables_hardening_allow_outbound_udp_ports, iptables_hardening_outbound_udp_ports, 'OUTPUT', 'udp')] %}
+{% if enabled is sameas true %}
+# control:{{ name }}
+{% for port in ports | unique | sort %}
+-A {{ chain }} -p {{ protocol }} --dport {{ port }} -m conntrack --ctstate NEW -j ACCEPT
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% if iptables_hardening_log_dropped is sameas true %}
+# control:log_dropped
+{% for chain in ['INPUT', 'OUTPUT', 'FORWARD'] %}
+-A {{ chain }} -m limit --limit {{ iptables_hardening_log_rate }} --limit-burst {{ iptables_hardening_log_burst }} -j LOG --log-prefix "lh-{{ chain | lower }}: " --log-level 4
+{% endfor %}
+{% endif %}

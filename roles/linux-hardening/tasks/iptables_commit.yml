@@ -1,0 +1,24 @@
+---
+- name: Close cached connection after firewall change
+  ansible.builtin.meta: reset_connection
+  tags:
+    - linux-hardening
+    - linux-hardening-iptables
+
+- name: Prove new authenticated management connection through firewall
+  ansible.builtin.wait_for_connection:
+    timeout: "{{ iptables_hardening_connection_test_timeout }}"
+    connect_timeout: 5
+    sleep: 2
+  tags:
+    - linux-hardening
+    - linux-hardening-iptables
+
+- name: Persist confirmed firewall rules and disarm rollback
+  linux_hardening_transaction:
+    kind: firewall
+    action: commit
+    token: "{{ iptables_hardening_transaction_result.token }}"
+  tags:
+    - linux-hardening
+    - linux-hardening-iptables
