@@ -1,8 +1,7 @@
-# Managed by linux-hardening
 Name: passwdqc password strength enforcement
 Default: yes
 Priority: 1024
-Conflicts: cracklib
+Conflicts: cracklib pwquality
 Password-Type: Primary
 Password:
   requisite     pam_passwdqc.so {{ linux_hardening_passwdqc_options }}
