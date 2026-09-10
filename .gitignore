@@ -76,3 +76,6 @@ Desktop.ini
 # Codex workspace metadata
 .agents/
 .codex/
+
+# Config file xray for docker role
+roles/docker/files/config.json
