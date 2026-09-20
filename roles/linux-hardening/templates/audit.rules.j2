@@ -1,0 +1,24 @@
+## Managed by Ansible (linux-hardening).
+## This file adds rules and does not delete rules owned by other files.
+-w /etc/passwd -p wa -k identity
+-w /etc/group -p wa -k identity
+-w /etc/shadow -p wa -k identity
+-w /etc/gshadow -p wa -k identity
+{% for result in linux_hardening_optional_audit_paths.results if result.stat.exists %}
+-w {{ result.item }} -p wa -k {{ 'privilege' if 'sudo' in result.item else 'identity' }}
+{% endfor %}
+-w /etc/audit/ -p wa -k audit-config
+-a always,exit -F arch=b64 -S sethostname,setdomainname -k system-locale
+-a always,exit -F arch=b64 -S adjtimex,settimeofday,clock_settime -k time-change
+-a always,exit -F arch=b64 -S mount -k mounts
+-a always,exit -F arch=b64 -S init_module,finit_module,delete_module -k modules
+{% if ansible_facts.architecture == 'x86_64' %}
+-a always,exit -F arch=b32 -S sethostname,setdomainname -k system-locale
+-a always,exit -F arch=b32 -S adjtimex,settimeofday,clock_settime -k time-change
+-a always,exit -F arch=b32 -S mount -k mounts
+-a always,exit -F arch=b32 -S init_module,finit_module,delete_module -k modules
+{% endif %}
+{% if linux_hardening_audit_immutable is sameas true %}
+## Reboot is required before audit rules can be changed after this is loaded.
+-e 2
+{% endif %}

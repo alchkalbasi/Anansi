@@ -214,21 +214,11 @@
     - linux-hardening
     - linux-hardening-linux
 
-- name: Apply individually enabled kernel parameters
-  ansible.posix.sysctl:
-    name: "{{ item.key }}"
-    value: "{{ item.value.value }}"
-    sysctl_file: /etc/sysctl.d/90-linux-hardening.conf
-    sysctl_set: true
-    reload: false
-    state: present
-    ignoreerrors: false
-  loop: |-
-    {{ linux_hardening_sysctl_settings | dict2items | selectattr('value.enabled', 'sameas', true) |
-    list }}
-  when: linux_hardening_kernel_parameters is sameas true
-  loop_control:
-    label: "{{ item.key }}"
+- name: Apply selected kernel and network sysctl controls
+  ansible.builtin.include_tasks: sysctl.yml
+  when:
+    - linux_hardening_kernel_parameters is sameas true
+    - linux_hardening_sysctl_settings.values() | selectattr('enabled', 'sameas', true) | list | length > 0
   tags:
     - linux-hardening
     - linux-hardening-linux
@@ -258,49 +248,29 @@
     - linux-hardening
     - linux-hardening-linux
 
-- name: Install audit daemon
-  ansible.builtin.apt:
-    name: auditd
-    state: present
-    policy_rc_d: 101
-  when: linux_hardening_auditd_install is sameas true
+- name: Apply audit daemon and kernel audit controls
+  ansible.builtin.include_tasks: audit.yml
+  when:
+    - linux_hardening_auditd_install is sameas true or linux_hardening_auditd_service is sameas true or
+      linux_hardening_disable_journald_audit is sameas true or linux_hardening_auditd_permissions is sameas true or
+      linux_hardening_audit_rules_enabled is sameas true or
+      linux_hardening_auditd_settings.values() | selectattr('enabled', 'sameas', true) | list | length > 0
   tags:
     - linux-hardening
     - linux-hardening-linux
 
-- name: Apply enabled audit settings
-  ansible.builtin.lineinfile:
-    path: /etc/audit/auditd.conf
-    regexp: "^\\s*{{ item.key }}\\s*="
-    line: "{{ item.key }} = {{ item.value.value }}"
-  loop: |-
-    {{ linux_hardening_auditd_settings | dict2items | selectattr('value.enabled', 'sameas', true) |
-    list }}
-  loop_control:
-    label: "{{ item.key }}"
-  notify: Linux hardening restart auditd
+- name: Apply optional validated sudo policy
+  ansible.builtin.include_tasks: sudo.yml
+  when: linux_hardening_sudo_policy_enabled is sameas true
   tags:
     - linux-hardening
     - linux-hardening-linux
 
-- name: Enable audit daemon
-  ansible.builtin.systemd_service:
-    name: auditd
-    state: started
-    enabled: true
-  when: linux_hardening_auditd_service is sameas true
-  tags:
-    - linux-hardening
-    - linux-hardening-linux
-
-- name: Disable duplicate journald audit listener
-  ansible.builtin.systemd_service:
-    name: systemd-journald-audit.socket
-    state: stopped
-    enabled: false
-    masked: true
-  notify: Linux hardening restart journald
-  when: linux_hardening_disable_journald_audit is sameas true
+- name: Apply optional service and AppArmor controls
+  ansible.builtin.include_tasks: services.yml
+  when:
+    - linux_hardening_apparmor_install is sameas true or linux_hardening_apparmor_service is sameas true or
+      linux_hardening_disable_services is sameas true
   tags:
     - linux-hardening
     - linux-hardening-linux
@@ -393,28 +363,6 @@
     group: root
     mode: '0444'
   when: linux_hardening_login_defs_permissions is sameas true
-  tags:
-    - linux-hardening
-    - linux-hardening-linux
-
-- name: Protect sysctl configuration permissions
-  ansible.builtin.file:
-    path: /etc/sysctl.d/90-linux-hardening.conf
-    owner: root
-    group: root
-    mode: '0440'
-  when: linux_hardening_sysctl_permissions is sameas true
-  tags:
-    - linux-hardening
-    - linux-hardening-linux
-
-- name: Protect auditd configuration permissions
-  ansible.builtin.file:
-    path: /etc/audit/auditd.conf
-    owner: root
-    group: root
-    mode: '0640'
-  when: linux_hardening_auditd_permissions is sameas true
   tags:
     - linux-hardening
     - linux-hardening-linux

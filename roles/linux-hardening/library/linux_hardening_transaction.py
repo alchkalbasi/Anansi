@@ -204,12 +204,13 @@ def ssh_candidates(root, directives, scopes, client=False):
     includes = {}
     stack = []
     scope_word = 'host' if client else 'match'
+    ssh_dir = Path(root).parent.resolve()
 
     def visit(path, global_context=True):
         path = Path(path)
         real = path.resolve()
-        if not real.is_relative_to(Path(root).parent.resolve()):
-            raise ValueError('SSH Include must stay within ' + str(Path(root).parent))
+        if not real.is_relative_to(ssh_dir):
+            raise ValueError('SSH Include must stay within ' + str(Path(root).parent) + ': ' + str(path) + ' resolves to ' + str(real))
         if str(real) in stack or str(real) in originals:
             raise ValueError('Repeated or recursive SSH Include: ' + str(path))
         if path.is_symlink():
@@ -229,7 +230,9 @@ def ssh_candidates(root, directives, scopes, client=False):
                     if not os.path.isabs(pattern):
                         pattern = str(Path(root).parent / pattern)
                     for child in sorted(glob.glob(pattern)):
-                        global_context = visit(child, global_context)
+                        real = Path(child).resolve()
+                        if real.is_relative_to(ssh_dir) and not Path(child).is_symlink():
+                            global_context = visit(child, global_context)
                         children.append(child)
                 includes[(str(path), line)] = children
             # ChallengeResponseAuthentication aliases KbdInteractiveAuthentication.
@@ -296,7 +299,7 @@ def validate_ssh(root, contents, includes, client):
         for path, data in contents.items():
             for (parent, line), children in includes.items():
                 if parent == path:
-                    replacement = ''.join('Include ' + mapping[child] + '\n' for child in children)
+                    replacement = ''.join('Include ' + mapping.get(child, child) + '\n' for child in children)
                     data = data.replace(line, replacement)
             Path(mapping[path]).write_text(data)
         if client:

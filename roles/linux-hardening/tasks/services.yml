@@ -1,0 +1,34 @@
+---
+- name: Install AppArmor tooling only when requested
+  ansible.builtin.apt:
+    name:
+      - apparmor
+      - apparmor-utils
+    state: present
+    policy_rc_d: 101
+  when: linux_hardening_apparmor_install is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Enable the existing AppArmor service only when requested
+  ansible.builtin.systemd_service:
+    name: apparmor
+    state: started
+    enabled: true
+  when: linux_hardening_apparmor_service is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Stop disable and mask explicitly selected unnecessary services
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+    masked: true
+  loop: "{{ linux_hardening_disabled_services | unique | sort }}"
+  when: linux_hardening_disable_services is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-linux

@@ -10,7 +10,21 @@
       - SOURCE,FSTYPE
   register: linux_hardening_mount_info
   changed_when: false
+  failed_when: linux_hardening_mount_info.rc not in [0, 1]
   check_mode: false
+  when: linux_hardening_mount.value.enabled is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Refuse to create a mount entry for an ordinary directory
+  ansible.builtin.assert:
+    that:
+      - linux_hardening_mount_info.rc == 0
+      - linux_hardening_mount_info.stdout | length > 0
+    fail_msg: >-
+      {{ linux_hardening_mount.value.path }} is not an existing mountpoint. Disable its mount control or
+      provision a dedicated filesystem before enabling mount options; directory permissions are independent.
   when: linux_hardening_mount.value.enabled is sameas true
   tags:
     - linux-hardening

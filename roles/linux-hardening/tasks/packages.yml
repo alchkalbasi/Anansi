@@ -1,0 +1,41 @@
+---
+- name: Refresh APT package metadata for an authorized upgrade
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: "{{ linux_hardening_package_cache_valid_time }}"
+  register: linux_hardening_package_cache_result
+
+- name: Install available package and kernel updates without a release upgrade
+  ansible.builtin.apt:
+    upgrade: safe
+    dpkg_options: force-confdef,force-confold
+  register: linux_hardening_package_upgrade_result
+
+- name: Detect whether updated packages require a reboot
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: linux_hardening_reboot_required
+
+- name: Read packages requesting a reboot
+  ansible.builtin.slurp:
+    path: /var/run/reboot-required.pkgs
+  register: linux_hardening_reboot_packages
+  when: linux_hardening_reboot_required.stat.exists
+
+- name: Report package update and reboot status
+  ansible.builtin.debug:
+    msg:
+      metadata_refreshed: "{{ linux_hardening_package_cache_result.cache_updated | default(false) }}"
+      packages_changed: "{{ linux_hardening_package_upgrade_result.changed }}"
+      reboot_required: "{{ linux_hardening_reboot_required.stat.exists }}"
+      reboot_packages: >-
+        {{ (linux_hardening_reboot_packages.content | default('') | b64decode).splitlines() }}
+      reboot_authorized: "{{ linux_hardening_allow_reboot }}"
+
+- name: Reboot after package updates only when separately authorized
+  ansible.builtin.reboot:
+    msg: Reboot authorized by linux_hardening_allow_reboot after package updates
+    reboot_timeout: "{{ linux_hardening_reboot_timeout }}"
+  when:
+    - linux_hardening_reboot_required.stat.exists
+    - linux_hardening_allow_reboot is sameas true

@@ -31,6 +31,24 @@ linux_hardening_auditd_install: true
 linux_hardening_auditd_service: true
 linux_hardening_disable_journald_audit: true
 linux_hardening_refresh_initramfs: true
+# Package/kernel remediation is deliberately separate from configuration hardening.
+# No package metadata refresh or upgrade occurs unless this is exactly true.
+linux_hardening_allow_package_upgrade: false
+# A reboot is never implied by allowing upgrades; authorize it independently.
+linux_hardening_allow_reboot: false
+linux_hardening_package_cache_valid_time: 3600
+linux_hardening_reboot_timeout: 900
+# Optional host controls that can affect applications and are therefore off by default.
+linux_hardening_audit_rules_enabled: false
+linux_hardening_audit_immutable: false
+linux_hardening_sudo_policy_enabled: false
+linux_hardening_apparmor_install: false
+linux_hardening_apparmor_service: false
+linux_hardening_disable_services: false
+linux_hardening_disabled_services: []
+linux_hardening_sudo_logfile: /var/log/sudo.log
+linux_hardening_sudo_timestamp_timeout: 5
+linux_hardening_sudo_passwd_timeout: 1
 linux_hardening_path_directories:
   - /usr/local/sbin
   - /usr/local/bin
@@ -161,7 +179,37 @@ linux_hardening_modules:
   rds: true
   sctp: true
   tipc: true
-  # Keep available by default
+  # Other legacy protocols and device-facing attack surfaces. These remain
+  # available unless an operator confirms they are unused.
+  ax25: false
+  netrom: false
+  rose: false
+  x25: false
+  atm: false
+  can: false
+  bluetooth: false
+  btusb: false
+  firewire_core: false
+  firewire_ohci: false
+  thunderbolt: false
+  usb_storage: false
+  uvcvideo: false
+  # Less common filesystems; keep available unless workload inventory proves
+  # they are unnecessary.
+  adfs: false
+  affs: false
+  befs: false
+  bfs: false
+  exofs: false
+  hpfs: false
+  minix: false
+  nilfs2: false
+  omfs: false
+  qnx4: false
+  qnx6: false
+  sysv: false
+  ufs: false
+  # Common production dependencies; never block these implicitly.
   squashfs: false
   vfat: false
 linux_hardening_login_defs:
@@ -355,6 +403,118 @@ linux_hardening_auditd_settings:
   transport:
     enabled: false
     value: TCP
+linux_hardening_sysctl_settings:
+  fs.protected_hardlinks:
+    enabled: true
+    value: '1'
+  fs.protected_symlinks:
+    enabled: true
+    value: '1'
+  fs.protected_fifos:
+    enabled: true
+    value: '1'
+  fs.protected_regular:
+    enabled: true
+    value: '2'
+  fs.suid_dumpable:
+    enabled: true
+    value: '0'
+  kernel.kptr_restrict:
+    enabled: true
+    value: '2'
+  kernel.dmesg_restrict:
+    enabled: false
+    value: '1'
+  kernel.perf_event_paranoid:
+    enabled: false
+    value: '3'
+  kernel.kexec_load_disabled:
+    enabled: false
+    value: '1'
+  kernel.sysrq:
+    enabled: false
+    value: '0'
+  kernel.unprivileged_bpf_disabled:
+    enabled: false
+    value: '1'
+  kernel.unprivileged_userns_clone:
+    enabled: false
+    value: '0'
+  kernel.io_uring_disabled:
+    enabled: false
+    value: '2'
+  user.max_user_namespaces:
+    enabled: false
+    value: '0'
+  vm.unprivileged_userfaultfd:
+    enabled: false
+    value: '0'
+  vm.mmap_min_addr:
+    enabled: false
+    value: '65536'
+  kernel.randomize_va_space:
+    enabled: true
+    value: '2'
+  kernel.yama.ptrace_scope:
+    enabled: true
+    value: '1'
+  net.ipv4.ip_forward:
+    enabled: true
+    value: '0'
+  net.ipv4.conf.all.rp_filter:
+    enabled: true
+    value: '1'
+  net.ipv4.conf.default.rp_filter:
+    enabled: true
+    value: '1'
+  net.ipv4.conf.all.accept_source_route:
+    enabled: true
+    value: '0'
+  net.ipv4.conf.default.accept_source_route:
+    enabled: true
+    value: '0'
+  net.ipv4.conf.all.accept_redirects:
+    enabled: true
+    value: '0'
+  net.ipv4.conf.default.accept_redirects:
+    enabled: true
+    value: '0'
+  net.ipv4.conf.all.secure_redirects:
+    enabled: true
+    value: '0'
+  net.ipv4.conf.default.secure_redirects:
+    enabled: true
+    value: '0'
+  net.ipv4.conf.all.send_redirects:
+    enabled: true
+    value: '0'
+  net.ipv4.conf.default.send_redirects:
+    enabled: true
+    value: '0'
+  net.ipv4.icmp_echo_ignore_broadcasts:
+    enabled: true
+    value: '1'
+  net.ipv4.icmp_ignore_bogus_error_responses:
+    enabled: true
+    value: '1'
+  net.ipv4.tcp_syncookies:
+    enabled: true
+    value: '1'
+  net.ipv4.tcp_rfc1337:
+    enabled: true
+    value: '1'
+  net.ipv6.conf.all.forwarding:
+    enabled: true
+    value: '0'
+  net.ipv6.conf.all.disable_ipv6:
+    enabled: true
+    value: '1'
+  net.ipv6.conf.default.disable_ipv6:
+    enabled: true
+    value: '1'
+  net.ipv6.conf.lo.disable_ipv6:
+    enabled: true
+    value: '1'
 linux_hardening_mounts:
   proc:
     # /proc is normally managed by the OS/kernel.
@@ -419,7 +579,7 @@ linux_hardening_mounts:
     # If /home is a separate filesystem, change enabled to true.
     # Do NOT normally add noexec because applications/users may
     # legitimately execute scripts/binaries from their home.
-    enabled: true
+    enabled: false
     permissions_enabled: true
     path: /home
     src: ''
@@ -448,7 +608,7 @@ linux_hardening_mounts:
     # Safe directory permissions regardless of whether /tmp
     # has its own filesystem.
     # If /tmp IS a dedicated mount, change enabled to true.
-    enabled: true
+    enabled: false
     permissions_enabled: true
     path: /tmp
     src: ''
@@ -463,7 +623,7 @@ linux_hardening_mounts:
     # Generally avoid noexec on /var because applications,
     # package managers and services can depend on its contents.
     # Enable only if /var is a separate mount.
-    enabled: true
+    enabled: false
     permissions_enabled: true
     path: /var
     src: ''
@@ -689,6 +849,19 @@ ssh_hardening_server_directives:
   PermitUserEnvironment:
     enabled: true
     value: 'no'
+  # User rc files run after authentication and can weaken forced-command
+  # deployments. Enable only after confirming no account depends on ~/.ssh/rc.
+  PermitUserRC:
+    enabled: false
+    value: 'no'
+  # Avoid exposing authentication-method details to user sessions.
+  ExposeAuthInfo:
+    enabled: false
+    value: 'no'
+  # Disable interactive terminals only on automation/SFTP-only servers.
+  PermitTTY:
+    enabled: false
+    value: 'no'
   # LANG/LC_* is common on Debian/Ubuntu, but not required for SSH itself.
   AcceptEnv:
     enabled: false
@@ -818,6 +991,9 @@ iptables_hardening_log_rate: 5/min
 iptables_hardening_log_burst: 10
 iptables_hardening_rollback_seconds: 180
 iptables_hardening_connection_test_timeout: 30
+# Required acknowledgement before this role changes FORWARD policy on a host
+# that appears to run Docker or Kubernetes/CNI networking.
+iptables_hardening_container_networking_acknowledged: false
 linux_hardening_login_defs_permissions: true
 linux_hardening_sysctl_permissions: true
 linux_hardening_auditd_permissions: true

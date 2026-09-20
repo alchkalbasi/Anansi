@@ -35,18 +35,21 @@ COMMIT
 '''
 
 class Controls(unittest.TestCase):
-    def test_defaults_all_opt_in(self):
+    def test_defaults_validate_and_new_disruptive_controls_are_opt_in(self):
         validator.validate(DEFAULTS)
-        def walk(value):
-            if isinstance(value, dict):
-                for key, child in value.items():
-                    if isinstance(child, bool):
-                        self.assertIs(child, False, key)
-                    walk(child)
-            elif isinstance(value, list):
-                for child in value:
-                    walk(child)
-        walk(DEFAULTS)
+        for key in ('linux_hardening_allow_package_upgrade', 'linux_hardening_allow_reboot',
+                    'linux_hardening_audit_rules_enabled', 'linux_hardening_audit_immutable',
+                    'linux_hardening_sudo_policy_enabled', 'linux_hardening_apparmor_install',
+                    'linux_hardening_apparmor_service', 'linux_hardening_disable_services',
+                    'iptables_hardening_container_networking_acknowledged'):
+            self.assertIs(DEFAULTS[key], False, key)
+        for key in ('kernel.dmesg_restrict', 'kernel.perf_event_paranoid',
+                    'kernel.kexec_load_disabled', 'kernel.unprivileged_bpf_disabled',
+                    'kernel.unprivileged_userns_clone', 'kernel.io_uring_disabled',
+                    'user.max_user_namespaces', 'vm.unprivileged_userfaultfd'):
+            self.assertIs(DEFAULTS['linux_hardening_sysctl_settings'][key]['enabled'], False, key)
+        for key in ('bluetooth', 'btusb', 'usb_storage', 'thunderbolt', 'uvcvideo'):
+            self.assertIs(DEFAULTS['linux_hardening_modules'][key], False, key)
 
     def test_string_true_rejected(self):
         for value in ('true', 'false', 1, None):
@@ -58,13 +61,35 @@ class Controls(unittest.TestCase):
             validator.validate(DEFAULTS | {'ssh_hardening_server_directives': {
                 'PasswordAuthentication': {'enabled': 'true', 'value': 'no'}}})
 
+    def test_irreversible_controls_require_their_parent_gate(self):
+        with self.assertRaisesRegex(ValueError, 'allow_reboot requires'):
+            validator.validate(DEFAULTS | {'linux_hardening_allow_reboot': True})
+        with self.assertRaisesRegex(ValueError, 'audit_immutable requires'):
+            validator.validate(DEFAULTS | {'linux_hardening_audit_immutable': True})
+
     def test_disabled_lists_do_not_generate_rules(self):
         env = Environment(loader=FileSystemLoader(ROLE / 'templates'))
+        values = DEFAULTS | {key: False for key in validator.BOOLEAN_NAMES
+                             if key.startswith('iptables_hardening_')}
+        values['iptables_hardening_tcp_ports'] = [80,443]
         for template in ('iptables.rules.j2', 'ip6tables.rules.j2'):
-            text = env.get_template(template).render(DEFAULTS | {'iptables_hardening_tcp_ports': [80,443]})
+            text = env.get_template(template).render(values)
             self.assertNotIn('-A ', text)
             self.assertEqual(transaction.canonical_rules(SNAPSHOT),
                              transaction.canonical_rules(transaction.merge_rules(SNAPSHOT, text, {})))
+
+    def test_audit_rules_preserve_other_files_and_gate_immutability(self):
+        env = Environment(loader=FileSystemLoader(ROLE / 'templates'))
+        values = DEFAULTS | {'ansible_facts': {'architecture': 'x86_64'},
+                             'linux_hardening_optional_audit_paths': {'results': []},
+                             'linux_hardening_audit_immutable': False}
+        text = env.get_template('audit.rules.j2').render(values)
+        self.assertNotIn('-D', text)
+        self.assertNotIn('-e 2', text)
+        self.assertIn('-F arch=b64', text)
+        self.assertIn('-F arch=b32', text)
+        values['linux_hardening_audit_immutable'] = True
+        self.assertIn('-e 2', env.get_template('audit.rules.j2').render(values))
 
     def test_firewall_foreign_rules_and_disabled_controls_retained(self):
         old = SNAPSHOT.replace('COMMIT', '-A INPUT -m comment --comment "linux-hardening:custom_tcp" -p tcp --dport 443 -j ACCEPT\nCOMMIT')
@@ -205,6 +230,19 @@ class Controls(unittest.TestCase):
                 result=subprocess.run(['ssh','-G','-F',str(root),host],capture_output=True,text=True,check=True)
                 self.assertIn('port '+port+'\n',result.stdout)
                 self.assertIn('compression yes\n',result.stdout)
+
+    def test_external_ssh_include_is_preserved_but_not_managed(self):
+        with tempfile.TemporaryDirectory() as config_dir, tempfile.TemporaryDirectory() as external_dir:
+            root=Path(config_dir)/'ssh_config'
+            external=Path(external_dir)/'external.conf'
+            root.write_text('Include '+str(external)+'\nHost *\n  ForwardAgent yes\n')
+            external.write_text('Host *\n  Compression yes\n')
+            controls={'ForwardAgent':{'enabled':True,'value':'no'}}
+            originals,contents,includes=transaction.ssh_candidates(str(root),controls,[],True)
+            transaction.validate_ssh(str(root),contents,includes,True)
+            self.assertEqual(set(originals),{str(root)})
+            self.assertIn('Include '+str(external)+'\n',contents[str(root)])
+            self.assertEqual(external.read_text(),'Host *\n  Compression yes\n')
 
     def test_native_sshd_validates_all_nonempty_default_directives(self):
         with tempfile.TemporaryDirectory() as temp:

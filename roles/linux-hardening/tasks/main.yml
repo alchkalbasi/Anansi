@@ -11,6 +11,7 @@
     - linux-hardening-linux
     - linux-hardening-ssh
     - linux-hardening-iptables
+    - linux-hardening-packages
 
 - name: Validate strict boolean switches and nested control schemas
   linux_hardening_validate:
@@ -24,6 +25,15 @@
     - linux-hardening-linux
     - linux-hardening-ssh
     - linux-hardening-iptables
+    - linux-hardening-packages
+
+- name: Apply explicitly authorized package updates
+  ansible.builtin.import_tasks: packages.yml
+  when: linux_hardening_allow_package_upgrade is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+    - linux-hardening-packages
 
 - name: Apply Linux controls
   ansible.builtin.import_tasks: linux.yml

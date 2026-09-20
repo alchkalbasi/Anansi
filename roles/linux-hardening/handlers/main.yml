@@ -21,6 +21,13 @@
     name: auditd
     state: restarted
 
+- name: Linux hardening load audit rules
+  ansible.builtin.command:
+    argv:
+      - augenrules
+      - --load
+  changed_when: true
+
 - name: Linux hardening restart journald
   ansible.builtin.systemd_service:
     name: systemd-journald

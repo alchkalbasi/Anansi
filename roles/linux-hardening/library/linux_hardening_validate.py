@@ -42,6 +42,14 @@ BOOLEAN_NAMES = ['linux_hardening_selinux_enabled',
  'linux_hardening_disable_journald_audit',
  'linux_hardening_kernel_parameters',
  'linux_hardening_refresh_initramfs',
+ 'linux_hardening_allow_package_upgrade',
+ 'linux_hardening_allow_reboot',
+ 'linux_hardening_audit_rules_enabled',
+ 'linux_hardening_audit_immutable',
+ 'linux_hardening_sudo_policy_enabled',
+ 'linux_hardening_apparmor_install',
+ 'linux_hardening_apparmor_service',
+ 'linux_hardening_disable_services',
  'ssh_hardening_install_server',
  'ssh_hardening_install_client',
  'ssh_hardening_enable_service',
@@ -69,7 +77,8 @@ BOOLEAN_NAMES = ['linux_hardening_selinux_enabled',
  'iptables_hardening_allow_custom_tcp_ports',
  'iptables_hardening_allow_custom_udp_ports',
  'iptables_hardening_allow_outbound_tcp_ports',
- 'iptables_hardening_allow_outbound_udp_ports']
+ 'iptables_hardening_allow_outbound_udp_ports',
+ 'iptables_hardening_container_networking_acknowledged']
 
 def validate(settings):
     for key in BOOLEAN_NAMES:
@@ -116,6 +125,25 @@ def validate(settings):
         raise ValueError('Invalid shell umask')
     if type(settings['linux_hardening_shell_timeout_seconds']) is not int or settings['linux_hardening_shell_timeout_seconds'] < 1:
         raise ValueError('Shell timeout must be a positive integer')
+    for key in ('linux_hardening_package_cache_valid_time', 'linux_hardening_reboot_timeout'):
+        if type(settings[key]) is not int or settings[key] < 0:
+            raise ValueError(key + ' must be a non-negative integer')
+    if settings['linux_hardening_reboot_timeout'] < 60:
+        raise ValueError('linux_hardening_reboot_timeout must be at least 60 seconds')
+    if settings['linux_hardening_allow_reboot'] and not settings['linux_hardening_allow_package_upgrade']:
+        raise ValueError('linux_hardening_allow_reboot requires linux_hardening_allow_package_upgrade')
+    if settings['linux_hardening_audit_immutable'] and not settings['linux_hardening_audit_rules_enabled']:
+        raise ValueError('linux_hardening_audit_immutable requires linux_hardening_audit_rules_enabled')
+    for key in ('linux_hardening_sudo_timestamp_timeout', 'linux_hardening_sudo_passwd_timeout'):
+        if type(settings[key]) is not int or settings[key] < 0:
+            raise ValueError(key + ' must be a non-negative integer')
+    if not re.fullmatch(r'/[A-Za-z0-9_./-]+', settings['linux_hardening_sudo_logfile']):
+        raise ValueError('linux_hardening_sudo_logfile must be a safe absolute path')
+    if not isinstance(settings['linux_hardening_disabled_services'], list):
+        raise ValueError('linux_hardening_disabled_services must be a list')
+    for service in settings['linux_hardening_disabled_services']:
+        if not isinstance(service, str) or not re.fullmatch(r'[A-Za-z0-9_.@-]+', service):
+            raise ValueError('Invalid systemd service name: ' + str(service))
 
 def main():
     module = AnsibleModule(argument_spec=dict(settings=dict(type='dict',required=True)),supports_check_mode=True)

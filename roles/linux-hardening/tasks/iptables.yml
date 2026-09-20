@@ -77,6 +77,38 @@
     - linux-hardening
     - linux-hardening-iptables
 
+- name: Detect common container networking state
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /run/docker.sock
+    - /var/run/docker.sock
+    - /etc/cni/net.d
+    - /var/lib/kubelet
+  register: iptables_hardening_container_paths
+  when:
+    - iptables_hardening_default_forward_policy_enabled is sameas true
+    - iptables_hardening_default_forward_policy == 'DROP'
+  tags:
+    - linux-hardening
+    - linux-hardening-iptables
+
+- name: Require acknowledgement before changing container host forwarding
+  ansible.builtin.assert:
+    that:
+      - iptables_hardening_container_networking_acknowledged is sameas true
+    fail_msg: >-
+      Docker or Kubernetes/CNI state was detected. Review its FORWARD chains and set
+      iptables_hardening_container_networking_acknowledged: true before managing a DROP policy.
+  when:
+    - iptables_hardening_default_forward_policy_enabled is sameas true
+    - iptables_hardening_default_forward_policy == 'DROP'
+    - iptables_hardening_container_paths.results | selectattr('stat.exists', 'defined') |
+      selectattr('stat.exists', 'sameas', true) | list | length > 0
+  tags:
+    - linux-hardening
+    - linux-hardening-iptables
+
 - name: Build validate and apply enabled firewall controls with rollback
   linux_hardening_transaction:
     kind: firewall

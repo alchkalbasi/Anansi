@@ -1,0 +1,5 @@
+# Managed by Ansible (linux-hardening). Validate with visudo before installation.
+Defaults use_pty
+Defaults logfile="{{ linux_hardening_sudo_logfile }}"
+Defaults timestamp_timeout={{ linux_hardening_sudo_timestamp_timeout }}
+Defaults passwd_timeout={{ linux_hardening_sudo_passwd_timeout }}

@@ -1,6 +1,6 @@
-# Complete variable reference
+# Variable reference
 
-All booleans below default to false. Lists and values never activate a control. Only actual YAML booleans are accepted. The exact machine-readable definitions are in [defaults/main.yml](defaults/main.yml).
+Only actual YAML booleans are accepted. Lists and values do not activate a separately gated control. This document originated as a conservative reference profile, while the current checkout has an opinionated active policy; [defaults/main.yml](defaults/main.yml) is authoritative for current values. New disruptive controls added by the 2026-09 review default to false and are documented in [SECURITY_CONTROLS.md](SECURITY_CONTROLS.md).
 
 ## Scalar switches and values
 
@@ -39,6 +39,20 @@ All booleans below default to false. Lists and values never activate a control. 
 | `linux_hardening_disable_journald_audit` | `false` | Stop, disable, and mask the journald audit socket; restart journald only on change. |
 | `linux_hardening_kernel_parameters` | `false` | Master permission for sysctl operations; each key also needs enabled: true. |
 | `linux_hardening_refresh_initramfs` | `false` | Allow update-initramfs -u only when an enabled module policy file changes. |
+| `linux_hardening_allow_package_upgrade` | `false` | Refresh APT metadata and perform a safe package upgrade; no release upgrade. |
+| `linux_hardening_allow_reboot` | `false` | Reboot only after an authorized upgrade reports `/var/run/reboot-required`. |
+| `linux_hardening_package_cache_valid_time` | `3600` | Maximum acceptable APT metadata age in seconds. |
+| `linux_hardening_reboot_timeout` | `900` | Reboot and reconnection timeout in seconds; minimum 60. |
+| `linux_hardening_audit_rules_enabled` | `false` | Install and load additive identity/time/mount/module audit rules. |
+| `linux_hardening_audit_immutable` | `false` | Add audit `-e 2`; loaded rules cannot change until reboot. |
+| `linux_hardening_sudo_policy_enabled` | `false` | Install the validated sudo policy drop-in. |
+| `linux_hardening_sudo_logfile` | `"/var/log/sudo.log"` | Absolute sudo command-log path. |
+| `linux_hardening_sudo_timestamp_timeout` | `5` | Sudo credential cache in minutes. |
+| `linux_hardening_sudo_passwd_timeout` | `1` | Sudo password-prompt timeout in minutes. |
+| `linux_hardening_apparmor_install` | `false` | Install AppArmor userspace packages without package-triggered activation. |
+| `linux_hardening_apparmor_service` | `false` | Start and enable the AppArmor service. |
+| `linux_hardening_disable_services` | `false` | Stop, disable, and mask only units in the service list. |
+| `linux_hardening_disabled_services` | `[]` | Exact systemd unit names selected for masking. |
 | `linux_hardening_path_directories` | `["/usr/local/sbin", "/usr/local/bin", "/usr/sbin", "/usr/bin", "/sbin", "/bin"]` | Absolute executable directories inspected by minimize_path_permissions; find follows command-line directory symlinks. |
 | `linux_hardening_insecure_packages` | `["xinetd", "openbsd-inetd", "inetutils-inetd", "nis", "telnetd", "inetutils-telnetd", "rsh-server", "rsh-redone-server", "prelink"]` | Debian apt package names removed only by remove_insecure_packages. |
 | `linux_hardening_passwdqc_options` | `"min=disabled,disabled,16,12,8"` | Native pam_passwdqc options; applied only by pam_passwdqc. |
@@ -103,6 +117,7 @@ All booleans below default to false. Lists and values never activate a control. 
 | `iptables_hardening_log_burst` | `10` | Positive packet burst for the enabled log rate limit. |
 | `iptables_hardening_rollback_seconds` | `180` | Independent rollback deadline in seconds; must exceed connection-test timeout by more than 60. |
 | `iptables_hardening_connection_test_timeout` | `30` | Seconds allowed for a fresh authenticated connection through the changed firewall. |
+| `iptables_hardening_container_networking_acknowledged` | `false` | Required before a FORWARD DROP policy is managed on a detected Docker/Kubernetes host. |
 | `linux_hardening_login_defs_permissions` | `false` | Set existing /etc/login.defs to root:root 0444. |
 | `linux_hardening_sysctl_permissions` | `false` | Set an existing role sysctl file to root:root 0440; does not create it. |
 | `linux_hardening_auditd_permissions` | `false` | Set existing auditd.conf to root:root 0640. |
@@ -118,7 +133,7 @@ All booleans below default to false. Lists and values never activate a control. 
 
 Each key names a sysctl. `enabled: true` plus `linux_hardening_kernel_parameters: true` applies and persists its value. Values are strings accepted by the target kernel. Missing kernel keys fail visibly.
 
-Every listed entry has `enabled: false`; the table gives its `value` default.
+The table gives each supplied value; inspect `defaults/main.yml` for the current `enabled` state.
 
 | Entry | Default value |
 | --- | --- |
@@ -129,6 +144,8 @@ Every listed entry has `enabled: false`; the table gives its `value` default.
 | `fs.suid_dumpable` | `"0"` |
 | `kernel.core_uses_pid` | `"1"` |
 | `kernel.kptr_restrict` | `"2"` |
+| `kernel.dmesg_restrict` | `"1"` |
+| `kernel.perf_event_paranoid` | `"3"` |
 | `kernel.kexec_load_disabled` | `"1"` |
 | `kernel.sysrq` | `"0"` |
 | `kernel.randomize_va_space` | `"2"` |
@@ -178,12 +195,15 @@ Every listed entry has `enabled: false`; the table gives its `value` default.
 | `vm.mmap_rnd_compat_bits` | `"16"` |
 | `kernel.unprivileged_userns_clone` | `"0"` |
 | `kernel.unprivileged_bpf_disabled` | `"1"` |
+| `kernel.io_uring_disabled` | `"2"` |
+| `user.max_user_namespaces` | `"0"` |
+| `vm.unprivileged_userfaultfd` | `"0"` |
 
 ## linux_hardening_login_defs
 
 Each key names a login.defs directive. Only its enabled entry is updated; quote octal and yes/no values. A file-wide permissions change has a separate switch.
 
-Every listed entry has `enabled: false`; the table gives its `value` default.
+The table gives each supplied value; inspect `defaults/main.yml` for the current `enabled` state.
 
 | Entry | Default value |
 | --- | --- |
@@ -232,7 +252,7 @@ Every listed entry has `enabled: false`; the table gives its `value` default.
 
 Each key names a faillock.conf parameter. These switches manage parameter values independently of enabling the PAM profiles. An empty string value for even_deny_root emits the bare flag; only use true for that entry if root lockout is intended.
 
-Every listed entry has `enabled: false`; the table gives its `value` default.
+The table gives each supplied value; inspect `defaults/main.yml` for the current `enabled` state.
 
 | Entry | Default value |
 | --- | --- |
@@ -244,7 +264,7 @@ Every listed entry has `enabled: false`; the table gives its `value` default.
 
 Each key names an auditd.conf parameter. Enabled entries update that setting and notify one changed-only restart; package installation and boot enablement are separate. Sizes are MiB and idle time is seconds, as in auditd.conf.
 
-Every listed entry has `enabled: false`; the table gives its `value` default.
+The table gives each supplied value; inspect `defaults/main.yml` for the current `enabled` state.
 
 | Entry | Default value |
 | --- | --- |
@@ -276,7 +296,7 @@ Every listed entry has `enabled: false`; the table gives its `value` default.
 
 Each key is a native sshd_config directive. Only enabled entries replace that global directive. Scalar values emit one line; list values emit repeated instances, useful for Port, ListenAddress, HostKey and HostCertificate. Algorithm directives require a comma-separated scalar, not repeated lines. An empty list explicitly removes a selected global directive.
 
-Every listed entry has `enabled: false`; the table gives its `value` default.
+The table gives each supplied value; inspect `defaults/main.yml` for the current `enabled` state.
 
 | Entry | Default value |
 | --- | --- |
@@ -328,6 +348,9 @@ Every listed entry has `enabled: false`; the table gives its `value` default.
 | `X11Forwarding` | `"no"` |
 | `X11UseLocalhost` | `"yes"` |
 | `PermitUserEnvironment` | `"no"` |
+| `PermitUserRC` | `"no"` |
+| `ExposeAuthInfo` | `"no"` |
+| `PermitTTY` | `"no"` |
 | `AcceptEnv` | `"LANG LC_*"` |
 | `Compression` | `"no"` |
 | `UseDNS` | `"no"` |
@@ -344,7 +367,7 @@ Edit `roles/linux-hardening/files/ssh_banner` to customize the pre-authenticatio
 
 Each key is a native ssh_config directive. The same enabled/value schema applies; Host-specific exceptions retain precedence. Native validation rejects unsupported values.
 
-Every listed entry has `enabled: false`; the table gives its `value` default.
+The table gives each supplied value; inspect `defaults/main.yml` for the current `enabled` state.
 
 | Entry | Default value |
 | --- | --- |
@@ -369,7 +392,7 @@ Every listed entry has `enabled: false`; the table gives its `value` default.
 
 ## linux_hardening_modules
 
-The map contains a separate YAML boolean for each module. Every default is false. A true value writes only that module policy, rejecting mounted filesystems and EFI-dependent vfat. The policy does not unload modules.
+The map contains a separate YAML boolean for each module. A true value writes only that module policy, rejecting mounted filesystems and EFI-dependent vfat. The policy does not unload modules. Newly added device, protocol, and filesystem entries default to false; inspect the authoritative defaults for the existing profile.
 
 | Module | Default |
 | --- | --- |
@@ -385,6 +408,32 @@ The map contains a separate YAML boolean for each module. Every default is false
 | `rds` | `false` |
 | `sctp` | `false` |
 | `tipc` | `false` |
+| `ax25` | `false` |
+| `netrom` | `false` |
+| `rose` | `false` |
+| `x25` | `false` |
+| `atm` | `false` |
+| `can` | `false` |
+| `bluetooth` | `false` |
+| `btusb` | `false` |
+| `firewire_core` | `false` |
+| `firewire_ohci` | `false` |
+| `thunderbolt` | `false` |
+| `usb_storage` | `false` |
+| `uvcvideo` | `false` |
+| `adfs` | `false` |
+| `affs` | `false` |
+| `befs` | `false` |
+| `bfs` | `false` |
+| `exofs` | `false` |
+| `hpfs` | `false` |
+| `minix` | `false` |
+| `nilfs2` | `false` |
+| `omfs` | `false` |
+| `qnx4` | `false` |
+| `qnx6` | `false` |
+| `sysv` | `false` |
+| `ufs` | `false` |
 
 ## linux_hardening_mounts
 

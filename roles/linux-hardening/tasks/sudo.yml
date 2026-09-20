@@ -1,0 +1,12 @@
+---
+- name: Install validated sudo defense-in-depth policy
+  ansible.builtin.template:
+    src: sudo-hardening.j2
+    dest: /etc/sudoers.d/90-linux-hardening
+    owner: root
+    group: root
+    mode: '0440'
+    validate: /usr/sbin/visudo -cf %s
+  tags:
+    - linux-hardening
+    - linux-hardening-linux

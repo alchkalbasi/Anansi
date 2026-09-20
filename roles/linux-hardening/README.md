@@ -1,8 +1,10 @@
 # linux-hardening
 
-A single opt-in role for Debian 12/13 and Ubuntu 22.04/24.04/26.04, derived from the Linux and OpenSSH roles in [dev-sec/ansible-collection-hardening at commit 3102eddbd116c5f8c1581aca543d372dbc326764](https://github.com/dev-sec/ansible-collection-hardening/tree/3102eddbd116c5f8c1581aca543d372dbc326764). Only Debian and Ubuntu are accepted. Firewall configuration uses iptables and ip6tables.
+A strictly gated hardening role for Debian 12/13 and Ubuntu 22.04/24.04/26.04, derived from the Linux and OpenSSH roles in [dev-sec/ansible-collection-hardening at commit 3102eddbd116c5f8c1581aca543d372dbc326764](https://github.com/dev-sec/ansible-collection-hardening/tree/3102eddbd116c5f8c1581aca543d372dbc326764). Only Debian and Ubuntu are accepted. Firewall configuration uses iptables and ip6tables.
 
-Every security switch defaults to `false`. An ordinary run with the supplied defaults performs validation and makes **zero configuration changes**. The role does not gather facts itself. Provide distribution/version facts, and service-manager facts for firewall use. Use `become: true` for enabled controls. Systemd, Python 3, and a functioning SSH service are required for server configuration transactions. Ansible connections must support `reset_connection` and `wait_for_connection`.
+Every control uses strict YAML booleans, and false leaves that control unmanaged. The current checkout contains an opinionated active policy in `defaults/main.yml`; it is **not** a no-op profile. Review and preferably override it from inventory/group vars before deployment. Newly added disruptive controls—package upgrades, reboot, user namespaces, eBPF, io_uring, audit immutability, service masking, and device modules—default to false. `tests/noop.yml` demonstrates an explicitly disabled validation profile.
+
+The role does not gather facts itself. Provide distribution/version facts, and service-manager facts for firewall use. Use `become: true` for enabled controls. Systemd, Python 3, and a functioning SSH service are required for server configuration transactions. Ansible connections must support `reset_connection` and `wait_for_connection`.
 
 The role targets Ansible Core 2.19 or later. Install controller collections with:
 
@@ -20,12 +22,17 @@ roles/linux-hardening/
 ├── vars/main.yml              # Fixed Debian/Ubuntu paths
 ├── tasks/
 │   ├── main.yml
+│   ├── packages.yml
 │   ├── linux.yml
 │   ├── core_dumps.yml
 │   ├── accounts.yml
 │   ├── pam.yml
+│   ├── sysctl.yml
 │   ├── modules.yml
 │   ├── mount.yml
+│   ├── audit.yml
+│   ├── sudo.yml
+│   ├── services.yml
 │   ├── ssh.yml
 │   ├── ssh_selinux.yml
 │   ├── ssh_key_file.yml
@@ -37,6 +44,8 @@ roles/linux-hardening/
 │   ├── passwdqc.j2
 │   ├── faillock.j2
 │   ├── faillock_authfail.j2
+│   ├── audit.rules.j2
+│   ├── sudo-hardening.j2
 │   ├── iptables.rules.j2
 │   ├── ip6tables.rules.j2
 │   └── iptables-common.rules.j2
@@ -50,6 +59,8 @@ roles/linux-hardening/
 ├── tests/noop.yml
 ├── requirements.yml
 ├── VARIABLES.md
+├── SECURITY_CONTROLS.md
+├── SECURITY_REVIEW.md
 ├── UPSTREAM_MAPPING.md
 ├── LICENSE
 ├── NOTICE
@@ -61,7 +72,8 @@ The three role-local modules ship with the role and require no additional Python
 ## Tags
 
 Every role task has the `linux-hardening` tag. Select a section with
-`linux-hardening-linux`, `linux-hardening-ssh`, or `linux-hardening-iptables`.
+`linux-hardening-linux`, `linux-hardening-ssh`, `linux-hardening-iptables`, or
+the narrower `linux-hardening-packages` tag.
 Prerequisite validation runs with each section, and included tasks carry the
 same tags as their section. Tags select tasks; controls still require their
 explicit enablement switches.
@@ -159,6 +171,21 @@ Use a dedicated play with serial rollout and a tested, non-root key-based manage
 
 Set `ansible_port` explicitly in the inventory to the existing management port. Start with a small set of controls; the example is not a universal policy for routers, container hosts, desktops, or application servers. A default FORWARD DROP policy and disabled kernel forwarding can disrupt routed workloads. OUTPUT DROP requires explicit outbound allowances, commonly DNS TCP/UDP 53, package repositories TCP 80/443, time synchronization UDP 123, and application-specific traffic. Existing return traffic requires `iptables_hardening_allow_established: true`.
 
+## Package updates and reboots
+
+Package remediation is intentionally independent from configuration hardening.
+`linux_hardening_allow_package_upgrade: false` performs no APT cache refresh
+and no upgrade. Set it to true only inside an approved maintenance window; the
+role refreshes metadata and runs a safe package upgrade, never a release
+upgrade. It reports whether packages changed, whether a reboot is required,
+and the packages recorded by `reboot-required.pkgs`.
+
+`linux_hardening_allow_reboot` is a second permission and also defaults to
+false. A reboot occurs only when both permissions are true and the distribution
+reports one is required. Use serial deployment and external health checks. A
+new kernel on disk does not fix the running kernel until reboot, unless an
+applicable vendor livepatch is active.
+
 ## SSH behavior
 
 Enabled global directives replace only the corresponding global directives, including those in local Include files. Unselected global directives, comments, and existing Match sections are preserved. The role does not replace the entire SSH configuration with a baseline. Client Host exceptions retain precedence over client-wide defaults. Existing server Match exceptions remain effective: use explicitly enabled Match controls if these should also be hardened.
@@ -206,7 +233,7 @@ Public-key files are read on authentication and do not require SSH reloads. Thei
 
 Changed server configuration is validated as a staged Include tree with `sshd -t`. A handler applies all changed files, validates the live tree, and reloads `ssh.service` once. A transient systemd timer restores the saved configuration and reloads SSH if a new authenticated Ansible connection cannot be established and committed in time. Invalid candidates never replace live configuration. Unchanged SSH configuration does not reload the service. Client configuration is checked with `ssh -G` and never reloads a service.
 
-Include paths must remain within `/etc/ssh`. Symlinked, repeated, or recursive configuration files are rejected instead of guessing at ownership or parse scope. Put selected exception scopes in the main configuration; earlier matching exceptions from Include files can still take precedence. Review effective Match behavior with `sshd -T -C user=...,host=...,addr=...,lport=...` for your access policies.
+Local Include targets under `/etc/ssh` are managed as part of the staged configuration tree. Include targets outside `/etc/ssh`, including symlinks that resolve outside that directory, are preserved and passed through native OpenSSH validation but are not edited by the role. Repeated or recursive local Include files are rejected instead of guessing at ownership or parse scope. Put selected exception scopes in the main configuration; earlier matching exceptions from Include files can still take precedence. Review effective Match behavior with `sshd -T -C user=...,host=...,addr=...,lport=...` for your access policies.
 
 The role preserves socket activation. Listener changes (`Port`, `ListenAddress`, `AddressFamily`) are refused while `ssh.socket` is active. Migrate socket activation separately with console access; the role does not stop the active management listener. After applying a changed server configuration, the transaction selects the first enabled `Port` value for its fresh Ansible connection, resets the cached connection, and only then commits. Keep the current inventory port for the initial migration run; after a successful commit, update `ansible_port` in inventory to the new port so later runs can connect. On systems already using service activation, migrate ports in stages: allow old and new listening ports, add a firewall allowance for the new port, verify it, update inventory, then remove the old port while keeping its controlling setting enabled.
 
@@ -249,6 +276,8 @@ ansible-lint --offline roles/linux-hardening
 
 The Python test environment needs Ansible, PyYAML, Jinja2, and OpenSSH binaries. Tests use temporary configuration and key files; they do not change host firewall or SSH service state. Check mode validates existing prerequisite files and commands, so an enabled configuration control may fail if its package would only be installed during that check-mode run.
 
-Validated in this checkout: 24 passing Python tests, offline role lint and syntax, all-defaults local execution with zero changes, isolated merge/rollback tests, and native OpenSSH candidate/client configuration checks on Debian 13. Live kernel firewall application, reboot persistence, real connection-loss rollback, and VM convergence across all target releases still require a disposable VM test matrix. These checks do not certify a security baseline or guarantee compatibility with every application.
+Validated in this checkout: 28 passing Python tests, offline production-profile lint, role syntax, an explicit no-op local profile, isolated merge/rollback tests, audit-template checks, and native OpenSSH candidate/client configuration checks. Live package upgrade/reboot, audit loading, AppArmor activation, kernel/firewall application, reboot persistence, real connection-loss rollback, and VM convergence across all target releases still require a disposable VM test matrix. These checks do not certify a security baseline or guarantee compatibility with every application.
 
 [UPSTREAM_MAPPING.md](UPSTREAM_MAPPING.md) records retained controls, simplifications, replacements, and every intentionally omitted upstream task category. The Apache-2.0 license and upstream attribution are included.
+
+[SECURITY_CONTROLS.md](SECURITY_CONTROLS.md) documents the rationale, CVE relationship, compatibility impact, reboot behavior, and variable for each control added in the 2026-09 review. [SECURITY_REVIEW.md](SECURITY_REVIEW.md) contains the final role audit and CVE analysis.

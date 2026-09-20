@@ -2,7 +2,7 @@
 galaxy_info:
   role_name: linux_hardening
   author: alch Kalbasi
-  description: Explicitly opt-in Linux, OpenSSH and iptables hardening for Debian and Ubuntu
+  description: Strictly gated Linux, OpenSSH and iptables hardening for Debian and Ubuntu
   license: Apache-2.0
   min_ansible_version: '2.19'
   platforms:

@@ -56,6 +56,16 @@ All upstream automatic hardening defaults become explicit opt-in controls. `fals
 | All task/variable/template branches exclusive to unsupported systems | Omitted | No unsupported OS package managers, authentication stacks, crypto policies, service paths, init files, distribution selectors, or handlers are shipped. |
 | Upstream values without Debian/Ubuntu tasks (`os_auth_pw_remember`, oddjob/SSSD/password-quality paths, single-user init prompts) | Omitted | These are unused or belong to another platform's implementation. The Debian reference does not enforce password history through that unused variable; this port does not claim otherwise. |
 
+## 2026 security-review additions
+
+These controls are local extensions rather than claims of equivalence with the
+reviewed upstream commit: explicitly authorized APT safe-upgrade and reboot,
+modern dmesg/perf/kexec/eBPF/user-namespace/io_uring/userfaultfd sysctls,
+additional unused module policies, additive audit rules, a validated sudo
+drop-in, AppArmor/service lifecycle gates, container-firewall preflight, and
+mountpoint error handling. Their rationale, compatibility impact, CVE
+relationship, and reboot behavior are in [SECURITY_CONTROLS.md](SECURITY_CONTROLS.md).
+
 ## SSH role
 
 | Upstream task/file | Disposition and replacement | Reason or retained behavior |

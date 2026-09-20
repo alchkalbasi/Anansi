@@ -1,0 +1,85 @@
+---
+- name: Install audit daemon when configuration or rules require it
+  ansible.builtin.apt:
+    name: auditd
+    state: present
+    policy_rc_d: 101
+  when:
+    - linux_hardening_auditd_install is sameas true or linux_hardening_audit_rules_enabled is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Apply enabled audit daemon settings
+  ansible.builtin.lineinfile:
+    path: /etc/audit/auditd.conf
+    regexp: "^\\s*{{ item.key }}\\s*="
+    line: "{{ item.key }} = {{ item.value.value }}"
+  loop: |-
+    {{ linux_hardening_auditd_settings | dict2items | selectattr('value.enabled', 'sameas', true) |
+    list }}
+  loop_control:
+    label: "{{ item.key }}"
+  notify: Linux hardening restart auditd
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Detect optional audit watch paths
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /etc/security/opasswd
+    - /etc/sudoers
+    - /etc/sudoers.d
+  register: linux_hardening_optional_audit_paths
+  when: linux_hardening_audit_rules_enabled is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Install audit rules for identity privilege time mount and module changes
+  ansible.builtin.template:
+    src: audit.rules.j2
+    dest: /etc/audit/rules.d/99-z-linux-hardening.rules
+    owner: root
+    group: root
+    mode: '0600'
+  when: linux_hardening_audit_rules_enabled is sameas true
+  notify: Linux hardening load audit rules
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Enable audit daemon
+  ansible.builtin.systemd_service:
+    name: auditd
+    state: started
+    enabled: true
+  when: linux_hardening_auditd_service is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Disable duplicate journald audit listener
+  ansible.builtin.systemd_service:
+    name: systemd-journald-audit.socket
+    state: stopped
+    enabled: false
+    masked: true
+  notify: Linux hardening restart journald
+  when: linux_hardening_disable_journald_audit is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Protect auditd configuration permissions
+  ansible.builtin.file:
+    path: /etc/audit/auditd.conf
+    owner: root
+    group: root
+    mode: '0640'
+  when: linux_hardening_auditd_permissions is sameas true
+  tags:
+    - linux-hardening
+    - linux-hardening-linux

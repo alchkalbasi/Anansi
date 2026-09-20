@@ -1,0 +1,31 @@
+---
+- name: Apply individually enabled kernel parameters
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value.value }}"
+    sysctl_file: /etc/sysctl.d/90-linux-hardening.conf
+    sysctl_set: true
+    reload: false
+    state: present
+    ignoreerrors: false
+  loop: |-
+    {{ linux_hardening_sysctl_settings | dict2items | selectattr('value.enabled', 'sameas', true) |
+    list }}
+  loop_control:
+    label: "{{ item.key }}"
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
+
+- name: Protect managed sysctl configuration permissions
+  ansible.builtin.file:
+    path: /etc/sysctl.d/90-linux-hardening.conf
+    owner: root
+    group: root
+    mode: '0440'
+  when:
+    - linux_hardening_sysctl_permissions is sameas true
+    - linux_hardening_sysctl_settings.values() | selectattr('enabled', 'sameas', true) | list | length > 0
+  tags:
+    - linux-hardening
+    - linux-hardening-linux
