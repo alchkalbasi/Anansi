@@ -1,0 +1,13 @@
+# Managed by Anansi; existing SSH and other jails remain administrator-owned.
+[anansi-proxmox]
+enabled = true
+filter = anansi-proxmox
+backend = systemd
+port = 8006
+protocol = tcp
+banaction = nftables-multiport
+usedns = no
+ignoreip = 127.0.0.1/8 ::1 {{ pve_hardening_trusted_networks | join(' ') }}
+maxretry = {{ pve_hardening_fail2ban_maxretry }}
+findtime = {{ pve_hardening_fail2ban_findtime }}
+bantime = {{ pve_hardening_fail2ban_bantime }}

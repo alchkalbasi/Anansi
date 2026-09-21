@@ -15,6 +15,8 @@ networking, observability, and collaboration platforms.
 
 - **Infrastructure and system setup:** Docker, iptables, downloads, and
   general host setup.
+- **Proxmox VE:** opt-in [standalone PVE 9 hardening](roles/proxmox-hardening/README.md)
+  with a dedicated `proxmox-hardening.yml` playbook.
 - **Applications and services:** Jitsi, Confluence, Mattermost, NetBox,
   3x-ui, MinIO, RustFS, and web services.
 - **Databases:** MySQL and PostgreSQL master/slave replication roles.

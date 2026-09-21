@@ -1,0 +1,48 @@
+---
+- name: Read available services
+  ansible.builtin.service_facts:
+  tags: [proxmox-hardening, proxmox-hardening-ksm]
+
+- name: Disable and mask installed KSM control services
+  ansible.builtin.systemd_service:
+    name: '{{ item }}'
+    state: stopped
+    enabled: false
+    masked: true
+  loop: [ksmtuned.service, ksm.service]
+  when: item in ansible_facts.services
+  tags: [proxmox-hardening, proxmox-hardening-ksm]
+
+- name: Persist stopping new KSM merges at boot
+  ansible.builtin.copy:
+    dest: /etc/tmpfiles.d/proxmox-hardening-ksm.conf
+    content: "# Managed by Anansi\nw /sys/kernel/mm/ksm/run - - - - 0\n"
+    owner: root
+    group: root
+    mode: '0644'
+  tags: [proxmox-hardening, proxmox-hardening-ksm]
+
+- name: Read current KSM merging state
+  ansible.builtin.slurp:
+    src: /sys/kernel/mm/ksm/run
+  register: pve_hardening_ksm_run
+  tags: [proxmox-hardening, proxmox-hardening-ksm]
+
+- name: Read shared KSM pages before optional unmerge
+  ansible.builtin.slurp:
+    src: /sys/kernel/mm/ksm/pages_sharing
+  register: pve_hardening_ksm_sharing
+  tags: [proxmox-hardening, proxmox-hardening-ksm]
+
+- name: Stop KSM and optionally unmerge existing shared pages
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python3
+      - -c
+      - "from pathlib import Path; import sys; Path('/sys/kernel/mm/ksm/run').write_text(sys.argv[1])"
+      - '{{ pve_hardening_ksm_stop_mode | string }}'
+  when: >-
+    (pve_hardening_ksm_run.content | b64decode | trim | int == 1) or
+    (pve_hardening_ksm_stop_mode == 2 and pve_hardening_ksm_sharing.content | b64decode | trim | int > 0)
+  changed_when: true
+  tags: [proxmox-hardening, proxmox-hardening-ksm]

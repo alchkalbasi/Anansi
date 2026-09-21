@@ -1,0 +1,40 @@
+---
+- name: Install Linux audit tooling
+  ansible.builtin.apt:
+    name: [auditd, audispd-plugins]
+    state: present
+    update_cache: true
+    cache_valid_time: '{{ pve_hardening_package_cache_valid_time }}'
+  tags: [proxmox-hardening, proxmox-hardening-audit]
+
+- name: Enable audit service
+  ansible.builtin.systemd_service:
+    name: auditd
+    enabled: true
+    state: started
+  tags: [proxmox-hardening, proxmox-hardening-audit]
+
+- name: Read active audit enforcement mode
+  ansible.builtin.command:
+    argv: [auditctl, -s]
+  register: pve_hardening_audit_status
+  changed_when: false
+  check_mode: false
+  tags: [proxmox-hardening, proxmox-hardening-audit]
+
+- name: Require mutable audit configuration before adding rules
+  ansible.builtin.assert:
+    that:
+      - pve_hardening_audit_status.stdout is not search('(?m)^enabled\s+2\s*$')
+    fail_msg: Audit is immutable. Schedule the existing policy change and reboot before enabling this control.
+  tags: [proxmox-hardening, proxmox-hardening-audit]
+
+- name: Add persistent Proxmox configuration watch
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/60-proxmox-hardening.rules
+    content: "# Managed by Anansi; local writes only, validate events on pmxcfs.\n-w /etc/pve -p wa -k pve-config\n"
+    owner: root
+    group: root
+    mode: '0640'
+  notify: Proxmox hardening load audit rules
+  tags: [proxmox-hardening, proxmox-hardening-audit]

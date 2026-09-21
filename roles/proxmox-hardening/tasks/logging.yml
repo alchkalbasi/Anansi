@@ -1,0 +1,63 @@
+---
+- name: Create journal configuration directory
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: pve_hardening_journald is sameas true
+  tags: [proxmox-hardening, proxmox-hardening-logging]
+
+- name: Configure bounded persistent journal storage
+  ansible.builtin.template:
+    src: journald.j2
+    dest: /etc/systemd/journald.conf.d/90-proxmox-hardening.conf
+    owner: root
+    group: root
+    mode: '0644'
+  when: pve_hardening_journald is sameas true
+  notify: Proxmox hardening restart journal
+  tags: [proxmox-hardening, proxmox-hardening-logging]
+
+- name: Check TLS logging trust file
+  ansible.builtin.stat:
+    path: '{{ pve_hardening_log_ca_file }}'
+  register: pve_hardening_log_ca
+  when: pve_hardening_remote_logging is sameas true
+  tags: [proxmox-hardening, proxmox-hardening-logging]
+
+- name: Require existing logging CA trust
+  ansible.builtin.assert:
+    that: [pve_hardening_log_ca.stat.exists]
+    fail_msg: Install the log collector CA certificate before enabling TLS forwarding.
+  when: pve_hardening_remote_logging is sameas true
+  tags: [proxmox-hardening, proxmox-hardening-logging]
+
+- name: Install TLS-capable rsyslog
+  ansible.builtin.apt:
+    name: [rsyslog, rsyslog-gnutls]
+    state: present
+    update_cache: true
+    cache_valid_time: '{{ pve_hardening_package_cache_valid_time }}'
+  when: pve_hardening_remote_logging is sameas true
+  tags: [proxmox-hardening, proxmox-hardening-logging]
+
+- name: Forward system logs and Proxmox GUI access logs over verified TLS
+  ansible.builtin.template:
+    src: rsyslog.j2
+    dest: /etc/rsyslog.d/60-proxmox-hardening.conf
+    owner: root
+    group: root
+    mode: '0644'
+  when: pve_hardening_remote_logging is sameas true
+  notify: Proxmox hardening reload rsyslog
+  tags: [proxmox-hardening, proxmox-hardening-logging]
+
+- name: Enable remote logging service
+  ansible.builtin.systemd_service:
+    name: rsyslog
+    enabled: true
+    state: started
+  when: pve_hardening_remote_logging is sameas true
+  tags: [proxmox-hardening, proxmox-hardening-logging]

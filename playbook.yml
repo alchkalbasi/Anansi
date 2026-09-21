@@ -118,8 +118,16 @@
     - linux-hardening
 
 - name: Install ans Configure Docker
-  hosts: stage-devops
+  hosts: all
   gather_facts: true
   become: true
   roles:
     - docker
+
+- name: Harden standalone Proxmox hosts
+  hosts: pve
+  gather_facts: false
+  become: true
+  serial: 1
+  roles:
+    - proxmox-hardening

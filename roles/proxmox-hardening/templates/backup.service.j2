@@ -1,0 +1,20 @@
+[Unit]
+Description=Encrypted Proxmox host configuration backup to PBS
+Wants=network-online.target
+After=network-online.target pve-cluster.service
+RequiresMountsFor=/etc/pve
+{% if pve_hardening_backup_on_failure %}
+OnFailure={{ pve_hardening_backup_on_failure }}
+{% endif %}
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/anansi-pve-config-backup
+UMask=0077
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+TimeoutStartSec=2h

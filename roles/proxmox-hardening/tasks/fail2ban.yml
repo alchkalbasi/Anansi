@@ -1,0 +1,36 @@
+---
+- name: Install Fail2Ban and its nftables action dependency
+  ansible.builtin.apt:
+    name: [fail2ban, nftables, python3-systemd]
+    state: present
+    update_cache: true
+    cache_valid_time: '{{ pve_hardening_package_cache_valid_time }}'
+  tags: [proxmox-hardening, proxmox-hardening-fail2ban]
+
+- name: Install anchored Proxmox authentication filter
+  ansible.builtin.copy:
+    src: fail2ban-proxmox.conf
+    dest: /etc/fail2ban/filter.d/anansi-proxmox.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Proxmox hardening reload Fail2Ban
+  tags: [proxmox-hardening, proxmox-hardening-fail2ban]
+
+- name: Configure journal-based GUI jail with trusted administrator exemptions
+  ansible.builtin.template:
+    src: fail2ban-jail.j2
+    dest: /etc/fail2ban/jail.d/90-proxmox-hardening.local
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  notify: Proxmox hardening reload Fail2Ban
+  tags: [proxmox-hardening, proxmox-hardening-fail2ban]
+
+- name: Enable Fail2Ban
+  ansible.builtin.systemd_service:
+    name: fail2ban
+    enabled: true
+    state: started
+  tags: [proxmox-hardening, proxmox-hardening-fail2ban]

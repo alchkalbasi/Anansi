@@ -1,0 +1,17 @@
+---
+- name: Identify supported processor vendor
+  ansible.builtin.assert:
+    that:
+      - "'GenuineIntel' in ansible_facts.processor or 'AuthenticAMD' in ansible_facts.processor"
+    fail_msg: Cannot select microcode without an Intel or AMD processor vendor fact.
+  tags: [proxmox-hardening, proxmox-hardening-microcode]
+
+- name: Install CPU vendor microcode from configured repositories
+  # A selected security update must also update an already installed microcode package.
+  ansible.builtin.apt:
+    name: "{{ 'intel-microcode' if 'GenuineIntel' in ansible_facts.processor else 'amd64-microcode' }}"
+    state: latest  # noqa package-latest
+    update_cache: true
+    cache_valid_time: '{{ pve_hardening_package_cache_valid_time }}'
+  notify: Proxmox hardening report microcode maintenance
+  tags: [proxmox-hardening, proxmox-hardening-microcode]

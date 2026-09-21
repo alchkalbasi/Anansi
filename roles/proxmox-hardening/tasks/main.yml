@@ -1,0 +1,58 @@
+---
+- name: Validate Proxmox host and selected controls
+  ansible.builtin.import_tasks: preflight.yml
+  tags:
+    - proxmox-hardening
+    - proxmox-hardening-sshd
+    - proxmox-hardening-updates
+    - proxmox-hardening-microcode
+    - proxmox-hardening-ksm
+    - proxmox-hardening-fail2ban
+    - proxmox-hardening-logging
+    - proxmox-hardening-audit
+    - proxmox-hardening-backup
+    - proxmox-hardening-report
+
+- name: Harden the SSH server with connection verification
+  ansible.builtin.import_tasks: sshd.yml
+  when: pve_hardening_sshd is sameas true
+  tags: [proxmox-hardening, proxmox-hardening-sshd]
+
+- name: Configure Debian security updates
+  ansible.builtin.import_tasks: updates.yml
+  when: pve_hardening_security_updates is sameas true
+  tags: [proxmox-hardening, proxmox-hardening-updates]
+
+- name: Install processor microcode
+  ansible.builtin.import_tasks: microcode.yml
+  when: pve_hardening_microcode is sameas true
+  tags: [proxmox-hardening, proxmox-hardening-microcode]
+
+- name: Stop kernel samepage merging
+  ansible.builtin.import_tasks: ksm.yml
+  when: pve_hardening_disable_ksm is sameas true
+  tags: [proxmox-hardening, proxmox-hardening-ksm]
+
+- name: Protect Proxmox GUI authentication
+  ansible.builtin.import_tasks: fail2ban.yml
+  when: pve_hardening_fail2ban is sameas true
+  tags: [proxmox-hardening, proxmox-hardening-fail2ban]
+
+- name: Configure persistent and remote logs
+  ansible.builtin.import_tasks: logging.yml
+  tags: [proxmox-hardening, proxmox-hardening-logging]
+
+- name: Audit local Proxmox configuration writes
+  ansible.builtin.import_tasks: audit.yml
+  when: pve_hardening_audit is sameas true
+  tags: [proxmox-hardening, proxmox-hardening-audit]
+
+- name: Schedule encrypted host configuration backups
+  ansible.builtin.import_tasks: backup.yml
+  when: pve_hardening_backup is sameas true
+  tags: [proxmox-hardening, proxmox-hardening-backup]
+
+- name: Show read-only host observations
+  ansible.builtin.import_tasks: report.yml
+  when: pve_hardening_report is sameas true
+  tags: [proxmox-hardening, proxmox-hardening-report]

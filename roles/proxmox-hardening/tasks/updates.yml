@@ -1,0 +1,26 @@
+---
+- name: Install unattended security update tooling
+  ansible.builtin.apt:
+    name: [unattended-upgrades, apt-listchanges]
+    state: present
+    update_cache: true
+    cache_valid_time: '{{ pve_hardening_package_cache_valid_time }}'
+  tags: [proxmox-hardening, proxmox-hardening-updates]
+
+- name: Restrict automatic upgrades to Debian security and protect hypervisor packages
+  ansible.builtin.template:
+    src: apt-security.j2
+    dest: /etc/apt/apt.conf.d/99zz-proxmox-hardening
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  tags: [proxmox-hardening, proxmox-hardening-updates]
+
+- name: Enable APT maintenance timers
+  ansible.builtin.systemd_service:
+    name: '{{ item }}'
+    enabled: true
+    state: started
+  loop: [apt-daily.timer, apt-daily-upgrade.timer]
+  tags: [proxmox-hardening, proxmox-hardening-updates]

@@ -1,0 +1,14 @@
+---
+# Deliberately leave listeners, forwarding, algorithms and PVE key files alone.
+_pve_hardening_sshd_directives:
+  PermitRootLogin: {enabled: true, value: 'yes'}
+  PubkeyAuthentication: {enabled: true, value: 'yes'}
+  AuthenticationMethods: {enabled: true, value: publickey}
+  PasswordAuthentication: {enabled: true, value: 'no'}
+  KbdInteractiveAuthentication: {enabled: true, value: 'no'}
+  PermitEmptyPasswords: {enabled: true, value: 'no'}
+  StrictModes: {enabled: true, value: 'yes'}
+  UsePAM: {enabled: true, value: 'yes'}
+  X11Forwarding: {enabled: true, value: 'no'}
+  MaxAuthTries: {enabled: true, value: 6}
+  LoginGraceTime: {enabled: true, value: 60}
