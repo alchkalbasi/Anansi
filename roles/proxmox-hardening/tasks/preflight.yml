@@ -1,0 +1,166 @@
+---
+- name: Gather required host facts even for section-tagged runs
+  ansible.builtin.setup:
+    gather_subset: [min, hardware]
+  tags: [proxmox-hardening]
+
+- name: Require Debian 13 on an x86_64 Proxmox host
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == 'Debian'
+      - ansible_facts.distribution_major_version == '13'
+      - ansible_facts.architecture == 'x86_64'
+      - ansible_facts.service_mgr == 'systemd'
+    fail_msg: This role supports standalone PVE 9 on Debian 13 amd64 with systemd.
+  tags: [proxmox-hardening]
+
+- name: Read installed Proxmox version
+  ansible.builtin.command:
+    argv: [/usr/bin/pveversion]
+  register: pve_hardening_version
+  changed_when: false
+  check_mode: false
+  tags: [proxmox-hardening]
+
+- name: Require Proxmox VE major version 9
+  ansible.builtin.assert:
+    that:
+      - pve_hardening_version.stdout is match('pve-manager/9\.')
+    fail_msg: Expected PVE 9.x, including 9.2. No upgrade is performed by this role.
+  tags: [proxmox-hardening]
+
+- name: Inspect cluster configuration
+  ansible.builtin.stat:
+    path: /etc/pve/corosync.conf
+  register: pve_hardening_corosync
+  tags: [proxmox-hardening]
+
+- name: Require the standalone topology this role was designed for
+  ansible.builtin.assert:
+    that:
+      - not pve_hardening_corosync.stat.exists
+    fail_msg: Cluster configuration detected. Review cluster-specific controls before adapting this standalone role.
+  tags: [proxmox-hardening]
+
+- name: Verify pmxcfs is mounted
+  ansible.builtin.command:
+    argv: [findmnt, --noheadings, --mountpoint, /etc/pve, --output, FSTYPE]
+  register: pve_hardening_pmxcfs
+  changed_when: false
+  check_mode: false
+  tags: [proxmox-hardening]
+
+- name: Require the Proxmox configuration filesystem
+  ansible.builtin.assert:
+    that:
+      - pve_hardening_pmxcfs.stdout | trim is match('fuse')
+    fail_msg: /etc/pve must be a mounted pmxcfs filesystem before hardening or backups.
+  tags: [proxmox-hardening]
+
+- name: Validate strict boolean switches
+  ansible.builtin.assert:
+    that:
+      - item.value is boolean
+    fail_msg: '{{ item.key }} must be a YAML boolean, not a quoted string.'
+  loop: "{{ lookup('ansible.builtin.dict', _pve_switches) }}"
+  vars:
+    _pve_switches:
+      sshd: '{{ pve_hardening_sshd }}'
+      security_updates: '{{ pve_hardening_security_updates }}'
+      microcode: '{{ pve_hardening_microcode }}'
+      disable_ksm: '{{ pve_hardening_disable_ksm }}'
+      ksm_unmerge_confirmed: '{{ pve_hardening_ksm_unmerge_confirmed }}'
+      fail2ban: '{{ pve_hardening_fail2ban }}'
+      journald: '{{ pve_hardening_journald }}'
+      remote_logging: '{{ pve_hardening_remote_logging }}'
+      audit: '{{ pve_hardening_audit }}'
+      backup: '{{ pve_hardening_backup }}'
+      key_escrowed: '{{ pve_hardening_pbs_key_escrowed }}'
+      report: '{{ pve_hardening_report }}'
+  tags: [proxmox-hardening]
+
+- name: Validate SSH connection and rollback window
+  ansible.builtin.assert:
+    that:
+      - (ansible_connection | default('ssh')) == 'ssh'
+      - pve_hardening_sshd_connection_timeout is integer
+      - pve_hardening_sshd_connection_timeout > 0
+      - pve_hardening_sshd_rollback_seconds is integer
+      - pve_hardening_sshd_rollback_seconds > pve_hardening_sshd_connection_timeout + 60
+    fail_msg: SSH hardening requires the native SSH connection and a rollback window exceeding the connection timeout by more than 60 seconds.
+  when: pve_hardening_sshd is sameas true
+  tags: [proxmox-hardening, proxmox-hardening-sshd]
+
+- name: Validate KSM memory impact selection
+  ansible.builtin.assert:
+    that:
+      - pve_hardening_ksm_stop_mode is integer
+      - pve_hardening_ksm_stop_mode in [0, 2]
+      - pve_hardening_ksm_stop_mode == 0 or pve_hardening_ksm_unmerge_confirmed is sameas true
+    fail_msg: KSM mode 2 needs ksm_unmerge_confirmed=true after checking spare RAM; mode 0 only stops new merging.
+  when: pve_hardening_disable_ksm is sameas true
+  tags: [proxmox-hardening]
+
+- name: Validate GUI ban settings
+  ansible.builtin.assert:
+    that:
+      - pve_hardening_trusted_networks is sequence and pve_hardening_trusted_networks is not string
+      - pve_hardening_trusted_networks | length > 0
+      - pve_hardening_fail2ban_maxretry is integer and pve_hardening_fail2ban_maxretry > 0
+      - pve_hardening_fail2ban_findtime is integer and pve_hardening_fail2ban_findtime > 0
+      - pve_hardening_fail2ban_bantime is integer and pve_hardening_fail2ban_bantime > 0
+    fail_msg: Provide trusted administrator addresses and positive integer Fail2Ban settings.
+  when: pve_hardening_fail2ban is sameas true
+  tags: [proxmox-hardening]
+
+- name: Validate trusted IP addresses and CIDRs with Python ipaddress
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python3
+      - -c
+      - >-
+        import ipaddress, sys;
+        nets = [ipaddress.ip_network(x, strict=False) for x in sys.argv[1:]];
+        assert all(n.prefixlen > 0 for n in nets), "Do not exempt the entire Internet"
+      - '{{ item }}'
+  loop: '{{ pve_hardening_trusted_networks }}'
+  changed_when: false
+  check_mode: false
+  when: pve_hardening_fail2ban is sameas true
+  tags: [proxmox-hardening]
+
+- name: Validate logging parameters
+  ansible.builtin.assert:
+    that:
+      - pve_hardening_journal_max_use is match('^[1-9][0-9]*[KMGT]$')
+      - pve_hardening_journal_retention is match('^[1-9][0-9]*(day|week|month|year|h)$')
+  when: pve_hardening_journald is sameas true
+  tags: [proxmox-hardening]
+
+- name: Validate TLS log destination
+  ansible.builtin.assert:
+    that:
+      - pve_hardening_log_server is match('^[a-zA-Z0-9][a-zA-Z0-9.:-]*$')
+      - pve_hardening_log_peer is match('^[a-zA-Z0-9][a-zA-Z0-9.-]*$')
+      - pve_hardening_log_port is integer and 0 < pve_hardening_log_port < 65536
+      - pve_hardening_log_ca_file is match('^/[a-zA-Z0-9/_.-]+$')
+  when: pve_hardening_remote_logging is sameas true
+  tags: [proxmox-hardening]
+
+- name: Validate encrypted backup parameters
+  ansible.builtin.assert:
+    that:
+      - pve_hardening_pbs_repository | length > 0
+      - pve_hardening_pbs_password | length > 0
+      - pve_hardening_pbs_key | length > 0
+      - pve_hardening_pbs_key_escrowed is sameas true
+      - (pve_hardening_pbs_key | from_json) is mapping
+      - pve_hardening_pbs_fingerprint == '' or pve_hardening_pbs_fingerprint is match('^([0-9a-fA-F]{2}:){31}[0-9a-fA-F]{2}$')
+      - pve_hardening_backup_calendar is match('^[a-zA-Z0-9*:,./ ~+-]+$')
+      - pve_hardening_backup_on_failure == '' or pve_hardening_backup_on_failure is match('^[a-zA-Z0-9@_.-]+\.service$')
+      - "'\n' not in pve_hardening_pbs_password"
+      - "'\n' not in pve_hardening_pbs_key_password"
+    fail_msg: Supply a PBS repository, token secret, existing encryption key, and confirmed offline key escrow.
+  no_log: true
+  when: pve_hardening_backup is sameas true
+  tags: [proxmox-hardening]

@@ -1,0 +1,11 @@
+# Managed by Anansi. Requires Debian's standard system log input configuration.
+module(load="imfile")
+input(type="imfile" File="/var/log/pveproxy/access.log" Tag="pveproxy-access:"
+      Severity="info" Facility="local6" PersistStateInterval="100")
+*.* action(type="omfwd" Target="{{ pve_hardening_log_server }}" Port="{{ pve_hardening_log_port }}"
+           Protocol="tcp" StreamDriver="gtls" StreamDriverMode="1"
+           StreamDriverAuthMode="x509/name" StreamDriverPermittedPeers="{{ pve_hardening_log_peer }}"
+           StreamDriver.CAFile="{{ pve_hardening_log_ca_file }}"
+           action.resumeRetryCount="-1" queue.type="LinkedList"
+           queue.filename="anansi-pve-forward" queue.maxDiskSpace="256m"
+           queue.saveOnShutdown="on")

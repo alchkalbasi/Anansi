@@ -1,0 +1,32 @@
+---
+- name: Validate and apply SSH defaults with an independent rollback watchdog
+  linux_hardening_transaction:
+    kind: server
+    action: apply
+    directives: '{{ _pve_hardening_sshd_directives }}'
+    rollback_seconds: '{{ pve_hardening_sshd_rollback_seconds }}'
+  register: pve_hardening_sshd_transaction
+  tags: [proxmox-hardening, proxmox-hardening-sshd]
+
+- name: Close the cached SSH connection before verifying authentication
+  ansible.builtin.meta: reset_connection
+  when: not ansible_check_mode
+  tags: [proxmox-hardening, proxmox-hardening-sshd]
+
+- name: Verify a fresh authenticated SSH connection
+  ansible.builtin.wait_for_connection:
+    timeout: '{{ pve_hardening_sshd_connection_timeout }}'
+    connect_timeout: 5
+    sleep: 2
+  when: not ansible_check_mode
+  tags: [proxmox-hardening, proxmox-hardening-sshd]
+
+- name: Commit SSH configuration after successful connection verification
+  linux_hardening_transaction:
+    kind: server
+    action: commit
+    token: '{{ pve_hardening_sshd_transaction.token }}'
+  when:
+    - not ansible_check_mode
+    - pve_hardening_sshd_transaction.token is defined
+  tags: [proxmox-hardening, proxmox-hardening-sshd]

@@ -1,0 +1,40 @@
+---
+- name: Collect read-only observations for manual controls
+  ansible.builtin.command:
+    argv: '{{ item.argv }}'
+  loop:
+    - name: SSH effective root configuration for loopback context
+      argv: [/usr/sbin/sshd, -T, -C, 'user=root,host=localhost,addr=127.0.0.1']
+    - name: Native PVE firewall status
+      argv: [/usr/sbin/pve-firewall, status]
+    - name: Legacy firewall compile check
+      argv: [/usr/sbin/pve-firewall, compile]
+    - name: Local storage mount
+      argv: [findmnt, --target, /var/lib/vz, --output, 'TARGET,SOURCE,FSTYPE,OPTIONS']
+    - name: Secure Boot state if mokutil is installed
+      argv: [mokutil, --sb-state]
+    - name: Kernel lockdown state
+      argv: [cat, /sys/kernel/security/lockdown]
+    - name: Container inventory for manual privilege review
+      argv: [/usr/sbin/pct, list]
+    - name: Failed systemd units
+      argv: [systemctl, --failed, --no-pager]
+  loop_control:
+    label: '{{ item.name }}'
+  register: pve_hardening_observations
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  tags: [proxmox-hardening, proxmox-hardening-report]
+
+- name: Show observations without treating missing commands as compliance
+  ansible.builtin.debug:
+    msg:
+      observation: '{{ item.item.name }}'
+      rc: '{{ item.rc | default(-1) }}'
+      stdout: '{{ item.stdout | default("") }}'
+      stderr: '{{ item.stderr | default(item.msg | default("")) }}'
+  loop: '{{ pve_hardening_observations.results }}'
+  loop_control:
+    label: '{{ item.item.name }}'
+  tags: [proxmox-hardening, proxmox-hardening-report]

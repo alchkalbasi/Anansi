@@ -1,0 +1,31 @@
+// Managed by Anansi proxmox-hardening. PVE updates stay in a maintenance window.
+#clear Unattended-Upgrade::Allowed-Origins;
+#clear Unattended-Upgrade::Origins-Pattern;
+Unattended-Upgrade::Origins-Pattern {
+  "origin=Debian,codename=trixie-security,label=Debian-Security";
+};
+// Add exclusions without clearing any administrator-defined blacklist.
+Unattended-Upgrade::Package-Blacklist {
+  "^proxmox-.*";
+  "^pve-.*";
+  "^libpve-.*";
+  "^qemu.*";
+  "^libknet.*";
+  "^corosync.*";
+  "^ceph.*";
+  "^librados.*";
+  "^librbd.*";
+  "^zfs.*";
+  "^libzfs.*";
+  "^spl.*";
+  "^linux-image.*";
+  "^linux-headers.*";
+};
+Unattended-Upgrade::Automatic-Reboot "false";
+Unattended-Upgrade::Remove-Unused-Dependencies "false";
+Unattended-Upgrade::Remove-New-Unused-Dependencies "false";
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "false";
+APT::Periodic::Enable "1";
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT::Periodic::AutocleanInterval "7";

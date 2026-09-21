@@ -1,0 +1,32 @@
+---
+# Explicit starter profile for a standalone G10 without Ceph.
+# Read README.md before enabling controls. No live inventory is changed.
+pve_hardening_report: true
+pve_hardening_security_updates: true
+pve_hardening_microcode: true  # Requires Debian non-free-firmware repositories
+pve_hardening_journald: true
+
+# Enable only after testing admin SSH keys and independent iLO console access.
+# This selects key-only SSH authentication; do not enable with SSH PAM MFA.
+pve_hardening_sshd: false
+
+# Stop new merging only; assess memory headroom before unmerging old pages.
+pve_hardening_disable_ksm: true
+pve_hardening_ksm_stop_mode: 0
+
+# Set actual admin/VPN source addresses before enabling.
+pve_hardening_fail2ban: false
+pve_hardening_trusted_networks: []
+
+# Verify pmxcfs audit support and absence of immutable audit policy first.
+pve_hardening_audit: false
+
+# Enable after provisioning a TLS collector and trusted CA on the host.
+pve_hardening_remote_logging: false
+pve_hardening_log_server: ''
+pve_hardening_log_peer: ''
+
+# Supply the secret variables using a separate Ansible Vault file.
+pve_hardening_backup: false
+pve_hardening_pbs_repository: ''
+pve_hardening_pbs_key_escrowed: false

@@ -1,0 +1,86 @@
+---
+- name: Validate systemd backup calendar before creating units
+  ansible.builtin.command:
+    argv: [systemd-analyze, calendar, '{{ pve_hardening_backup_calendar }}']
+  changed_when: false
+  check_mode: false
+  tags: [proxmox-hardening, proxmox-hardening-backup]
+
+- name: Install Proxmox Backup client
+  ansible.builtin.apt:
+    name: proxmox-backup-client
+    state: present
+    update_cache: true
+    cache_valid_time: '{{ pve_hardening_package_cache_valid_time }}'
+  tags: [proxmox-hardening, proxmox-hardening-backup]
+
+- name: Create private backup credential directory outside the backed up trees
+  ansible.builtin.file:
+    path: /root/.config/anansi-pve-backup
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+  tags: [proxmox-hardening, proxmox-hardening-backup]
+
+- name: Install protected backup credentials and existing encryption key
+  ansible.builtin.copy:
+    dest: '/root/.config/anansi-pve-backup/{{ item.name }}'
+    content: '{{ item.content }}'
+    owner: root
+    group: root
+    mode: '0600'
+  loop:
+    - name: token
+      content: '{{ pve_hardening_pbs_password }}'
+    - name: encryption-key.json
+      content: '{{ pve_hardening_pbs_key }}'
+    - name: key-password
+      content: '{{ pve_hardening_pbs_key_password }}'
+    - name: repository.json
+      content: "{{ {'repository': pve_hardening_pbs_repository, 'fingerprint': pve_hardening_pbs_fingerprint} | to_json }}"
+  no_log: true
+  diff: false
+  tags: [proxmox-hardening, proxmox-hardening-backup]
+
+- name: Install host configuration backup runner
+  ansible.builtin.copy:
+    src: backup-host.py
+    dest: /usr/local/sbin/anansi-pve-config-backup
+    owner: root
+    group: root
+    mode: '0700'
+  tags: [proxmox-hardening, proxmox-hardening-backup]
+
+- name: Install backup service
+  ansible.builtin.template:
+    src: backup.service.j2
+    dest: /etc/systemd/system/anansi-pve-config-backup.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Proxmox hardening reload backup units
+  tags: [proxmox-hardening, proxmox-hardening-backup]
+
+- name: Install daily backup schedule
+  ansible.builtin.template:
+    src: backup.timer.j2
+    dest: /etc/systemd/system/anansi-pve-config-backup.timer
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - Proxmox hardening reload backup units
+    - Proxmox hardening restart backup timer
+  tags: [proxmox-hardening, proxmox-hardening-backup]
+
+- name: Load backup units before enabling the timer
+  ansible.builtin.meta: flush_handlers
+  tags: [proxmox-hardening, proxmox-hardening-backup]
+
+- name: Enable scheduled encrypted backups
+  ansible.builtin.systemd_service:
+    name: anansi-pve-config-backup.timer
+    enabled: true
+    state: started
+  tags: [proxmox-hardening, proxmox-hardening-backup]

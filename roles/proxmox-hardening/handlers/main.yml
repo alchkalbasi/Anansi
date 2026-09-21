@@ -1,0 +1,63 @@
+---
+- name: Proxmox hardening report microcode maintenance
+  ansible.builtin.debug:
+    msg: Microcode changed. Schedule a controlled reboot and verify the loaded revision; this role never reboots.
+  tags: [proxmox-hardening, proxmox-hardening-microcode]
+
+- name: Proxmox hardening validate Fail2Ban
+  ansible.builtin.command:
+    argv: [fail2ban-client, -t]
+  changed_when: false
+  listen: Proxmox hardening reload Fail2Ban
+  tags: [proxmox-hardening, proxmox-hardening-fail2ban]
+
+- name: Proxmox hardening restart Fail2Ban
+  ansible.builtin.systemd_service:
+    name: fail2ban
+    state: restarted
+  listen: Proxmox hardening reload Fail2Ban
+  tags: [proxmox-hardening, proxmox-hardening-fail2ban]
+
+- name: Proxmox hardening restart journal
+  ansible.builtin.systemd_service:
+    name: systemd-journald
+    state: restarted
+  tags: [proxmox-hardening, proxmox-hardening-logging]
+
+- name: Proxmox hardening flush persistent journal
+  ansible.builtin.command:
+    argv: [journalctl, --flush]
+  changed_when: true
+  listen: Proxmox hardening restart journal
+  tags: [proxmox-hardening, proxmox-hardening-logging]
+
+- name: Proxmox hardening validate rsyslog
+  ansible.builtin.command:
+    argv: [rsyslogd, -N1]
+  changed_when: false
+  listen: Proxmox hardening reload rsyslog
+  tags: [proxmox-hardening, proxmox-hardening-logging]
+
+- name: Proxmox hardening restart rsyslog
+  ansible.builtin.systemd_service:
+    name: rsyslog
+    state: restarted
+  listen: Proxmox hardening reload rsyslog
+  tags: [proxmox-hardening, proxmox-hardening-logging]
+
+- name: Proxmox hardening load audit rules
+  ansible.builtin.command:
+    argv: [augenrules, --load]
+  changed_when: true
+  tags: [proxmox-hardening, proxmox-hardening-audit]
+
+- name: Proxmox hardening reload backup units
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  tags: [proxmox-hardening, proxmox-hardening-backup]
+
+- name: Proxmox hardening restart backup timer
+  ansible.builtin.systemd_service:
+    name: anansi-pve-config-backup.timer
+    state: restarted
+  tags: [proxmox-hardening, proxmox-hardening-backup]

@@ -1,0 +1,44 @@
+---
+# false leaves an already configured control unmanaged. Review enabled defaults.
+pve_hardening_sshd: true
+pve_hardening_sshd_rollback_seconds: 180
+pve_hardening_sshd_connection_timeout: 60
+pve_hardening_security_updates: true
+pve_hardening_microcode: true
+pve_hardening_disable_ksm: true
+pve_hardening_fail2ban: false
+pve_hardening_journald: true
+pve_hardening_remote_logging: false
+pve_hardening_audit: true
+pve_hardening_backup: false
+pve_hardening_report: true
+
+# This role is intentionally limited to standalone PVE 9 / Debian 13 hosts.
+pve_hardening_package_cache_valid_time: 3600
+pve_hardening_ksm_stop_mode: 0  # 0 stops merging; 2 also unmerges existing pages
+pve_hardening_ksm_unmerge_confirmed: true  # Requires spare RAM; may cause OOM
+
+# Supply actual administrator/VPN addresses before enabling Fail2Ban.
+pve_hardening_trusted_networks: []
+pve_hardening_fail2ban_maxretry: 6
+pve_hardening_fail2ban_findtime: 7200
+pve_hardening_fail2ban_bantime: 3600
+pve_hardening_journal_max_use: 2G
+pve_hardening_journal_retention: 30day
+
+# TLS syslog destination; CA file must already exist on the managed host.
+pve_hardening_log_server: ''
+pve_hardening_log_port: 6514
+pve_hardening_log_ca_file: /etc/ssl/certs/ca-certificates.crt
+pve_hardening_log_peer: ''  # Certificate DNS name, normally the log server name
+
+# PBS credentials should be supplied with Ansible Vault.
+pve_hardening_pbs_repository: ''  # hostbackup@pbs!node@pbs.example.com:datastore
+pve_hardening_pbs_password: ''
+pve_hardening_pbs_fingerprint: ''  # Empty uses the system CA trust store
+pve_hardening_pbs_key: ''  # Contents of an existing, escrowed PBS encryption key JSON
+pve_hardening_pbs_key_password: ''  # Empty for a key created with --kdf none
+pve_hardening_pbs_key_escrowed: false
+pve_hardening_backup_calendar: '*-*-* 06:00:00'
+# Optional existing systemd unit for your notification integration.
+pve_hardening_backup_on_failure: ''
