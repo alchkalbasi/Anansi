@@ -1,7 +1,7 @@
 ---
 - name: Check if Docker CE and Compose Plugin are installed
   ansible.builtin.command: "{{ item }}"
-  register: docker_install_check
+  register: confluence_docker_install_check
   ignore_errors: true
   changed_when: false
   loop:
@@ -13,14 +13,14 @@
 - name: Fail if Docker CE is missing
   ansible.builtin.fail:
     msg: "CRITICAL: Docker (docker-ce) is not installed on this host. Please install it before running this playbook."
-  when: docker_install_check.results[0].rc != 0
+  when: confluence_docker_install_check.results[0].rc != 0
   tags:
     - check-docker
 
 - name: Fail if Docker Compose is missing
   ansible.builtin.fail:
     msg: "CRITICAL: Docker Compose Plugin is missing. Run 'sudo apt install docker-compose-plugin' to fix."
-  when: docker_install_check.results[1].rc != 0
+  when: confluence_docker_install_check.results[1].rc != 0
   tags:
     - check-docker
 
@@ -31,7 +31,7 @@
     - check-docker
 
 - name: Create a docker network with name
-  docker_network:
+  community.docker.docker_network:
     name: "{{ item }}"
     driver_options:
       com.docker.network.bridge.name: "{{ item }}"
@@ -44,32 +44,35 @@
 
 - name: Creates directory
   ansible.builtin.file:
-    path: "{{ service_dir }}"
+    path: "{{ confluence_service_dir }}"
     state: directory
+    mode: "{{ service_dir_mode | default('0755') }}"
   tags:
     - preparing
 
 - name: Create service subdirectories
   ansible.builtin.file:
-    path: "{{ service_dir }}/{{ item }}"
+    path: "{{ confluence_service_dir }}/{{ item }}"
     state: directory
     mode: "{{ service_dir_mode | default('0755') }}"
-  loop: "{{ service_subdirs }}"
+  loop: "{{ confluence_service_subdirs }}"
   tags:
-  - preparing_confluence
-  - directories
+    - preparing_confluence
+    - directories
 
 - name: Copy file with owner and permissions
   ansible.builtin.copy:
     src: atlassian-agent.bak
-    dest: "{{ service_dir }}/agent/atlassian-agent.bak"
+    dest: "{{ confluence_service_dir }}/agent/atlassian-agent.bak"
+    mode: "0644"
   tags:
     - preparing_confluence
 
 - name: Copy file with owner and permissions
   ansible.builtin.copy:
     src: compose.yml
-    dest: "{{ service_dir }}/compose.yml"
+    dest: "{{ confluence_service_dir }}/compose.yml"
+    mode: "0644"
   tags:
     - preparing
 
@@ -77,18 +80,19 @@
 - name: Template a file to path
   ansible.builtin.template:
     src: .env.j2
-    dest: "{{ service_dir }}/.env"
+    dest: "{{ confluence_service_dir }}/.env"
+    mode: "0600"
   tags:
     - preparing
 
 - name: Pull images for project
   community.docker.docker_compose_v2_pull:
-    project_src: "{{ service_dir }}"
+    project_src: "{{ confluence_service_dir }}"
   tags:
     - pull
 
-- name: deploy Docker Compose stack
+- name: Deploy Docker Compose stack
   community.docker.docker_compose_v2:
-    project_src: "{{ service_dir }}"
+    project_src: "{{ confluence_service_dir }}"
   tags:
     - deploy

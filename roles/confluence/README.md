@@ -29,29 +29,29 @@ The role also waits for Confluence's health status and guides you through retrie
 ### Default Variables
 
 ```yaml
-DOMAIN: x
-subdomain: x
-project_dir: x
-service_dir: x
-restart_policy: x
-CONFLUENCE_IMAGE_TAG: x
-CONFLUENCE_HOSTNAME: x
-DATA_PATH: x
+confluence_domain: x
+confluence_subdomain: x
+confluence_project_dir: x
+confluence_service_dir: x
+confluence_restart_policy: x
+confluence_image_tag: x
+confluence_hostname: x
+confluence_data_path: x
 
 confluence_email: x
-company: x
-service_name: x
+confluence_company: x
+confluence_service_name: x
 
-CONFLUENCE_JVM_MINIMUM_MEMORY: x
-CONFLUENCE_JVM_MAXIMUM_MEMORY: x
+confluence_jvm_minimum_memory: x
+confluence_jvm_maximum_memory: x
 
-service_subdirs:
+confluence_service_subdirs:
   - x
 
-hostname_postgres: x
+confluence_postgres_hostname: x
 
 # secret vars
-CONFLUENCE_DB_NAME: x
-CONFLUENCE_DB_USER: x
-CONFLUENCE_DB_PASSWORD: x
+confluence_db_name: x
+confluence_db_user: x
+confluence_db_password: x
 ```

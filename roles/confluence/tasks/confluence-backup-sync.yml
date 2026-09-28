@@ -1,0 +1,62 @@
+---
+- name: Validate Confluence remote backup settings
+  ansible.builtin.assert:
+    that:
+      - confluence_remote_backup_host | length > 0
+      - confluence_remote_backup_user | length > 0
+      - confluence_remote_backup_path | length > 0
+      - confluence_remote_backup_port | int > 0
+      - confluence_remote_backup_port | int <= 65535
+    fail_msg: "Set confluence_remote_backup_host, user, path, and a valid SSH port when remote backup sync is enabled."
+  tags:
+    - backup
+    - cron
+
+- name: Create root SSH directory for Confluence backup sync
+  ansible.builtin.file:
+    path: /root/.ssh
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  when: confluence_remote_backup_known_hosts | length > 0
+  tags:
+    - backup
+    - cron
+
+- name: Install Confluence backup server host keys
+  ansible.builtin.known_hosts:
+    path: /root/.ssh/known_hosts
+    name: "{{ item.name | default(confluence_remote_backup_host) }}"
+    key: "{{ item.key }}"
+    state: present
+  loop: "{{ confluence_remote_backup_known_hosts }}"
+  tags:
+    - backup
+    - cron
+
+- name: Template Confluence backup sync script
+  ansible.builtin.template:
+    src: confluence-backup-sync.sh.j2
+    dest: "{{ confluence_remote_backup_script_path }}"
+    owner: root
+    group: root
+    mode: "0750"
+  tags:
+    - backup
+    - cron
+
+- name: Creates a cron file under /etc/cron.d for Confluence backup sync
+  ansible.builtin.cron:
+    name: confluence-backup-sync
+    weekday: "{{ confluence_remote_backup_cron_weekday }}"
+    month: "{{ confluence_remote_backup_cron_month }}"
+    day: "{{ confluence_remote_backup_cron_day }}"
+    hour: "{{ confluence_remote_backup_cron_hour }}"
+    minute: "{{ confluence_remote_backup_cron_minute }}"
+    user: root
+    job: "{{ confluence_remote_backup_script_path }} >> {{ confluence_remote_backup_log_path }} 2>&1"
+    cron_file: "{{ confluence_remote_backup_cron_file }}"
+  tags:
+    - backup
+    - cron
