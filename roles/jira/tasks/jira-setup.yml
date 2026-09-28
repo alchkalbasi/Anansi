@@ -1,0 +1,83 @@
+---
+- name: Check if Docker CE and Compose Plugin are installed
+  ansible.builtin.command: "{{ item }}"
+  register: jira_docker_install_check
+  ignore_errors: true
+  changed_when: false
+  loop:
+    - "docker --version"
+    - "docker compose version"
+  tags:
+    - check-docker
+
+- name: Fail if Docker CE is missing
+  ansible.builtin.fail:
+    msg: "CRITICAL: Docker (docker-ce) is not installed on this host. Please install it before running this playbook."
+  when: jira_docker_install_check.results[0].rc != 0
+  tags:
+    - check-docker
+
+- name: Fail if Docker Compose is missing
+  ansible.builtin.fail:
+    msg: "CRITICAL: Docker Compose Plugin is missing. Run 'sudo apt install docker-compose-plugin' to fix."
+  when: jira_docker_install_check.results[1].rc != 0
+  tags:
+    - check-docker
+
+- name: Create Docker networks for Jira
+  community.docker.docker_network:
+    name: "{{ item }}"
+    driver_options:
+      com.docker.network.bridge.name: "{{ item }}"
+  loop:
+    - "{{ jira_docker_public_network }}"
+    - "{{ jira_docker_private_network }}"
+  tags:
+    - preparing
+    - docker
+
+- name: Create Jira service directories
+  ansible.builtin.file:
+    path: "{{ jira_service_dir }}/{{ item }}"
+    state: directory
+    mode: "{{ jira_service_dir_mode }}"
+  loop: "{{ [''] + jira_service_subdirs }}"
+  tags:
+    - preparing
+    - directories
+
+- name: Copy Atlassian agent
+  ansible.builtin.copy:
+    src: atlassian-agent.bak
+    dest: "{{ jira_service_dir }}/agent/atlassian-agent.bak"
+    mode: "0644"
+  tags:
+    - preparing
+
+- name: Copy Jira compose file
+  ansible.builtin.copy:
+    src: compose.yml
+    dest: "{{ jira_service_dir }}/compose.yml"
+    mode: "0644"
+  tags:
+    - preparing
+
+- name: Template Jira environment file
+  ansible.builtin.template:
+    src: .env.j2
+    dest: "{{ jira_service_dir }}/.env"
+    mode: "0600"
+  tags:
+    - preparing
+
+- name: Pull Jira images
+  community.docker.docker_compose_v2_pull:
+    project_src: "{{ jira_service_dir }}"
+  tags:
+    - pull
+
+- name: Deploy Jira Docker Compose stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ jira_service_dir }}"
+  tags:
+    - deploy

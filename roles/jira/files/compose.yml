@@ -1,0 +1,131 @@
+networks:
+  private:
+    name: ${PRIVATE_NETWORK}
+    external: true
+  public:
+    name: ${PUBLIC_NETWORK}
+    external: true
+
+volumes:
+  jira-data:
+  jira-postgres:
+  jira-data-backups:
+  jira-database-backups:
+
+services:
+  postgres:
+    image: postgres:${JIRA_POSTGRES_IMAGE_TAG}
+    container_name: ${JIRA_CONTAINER_NAME}-postgres
+    volumes:
+      - jira-postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${JIRA_DB_NAME}
+      POSTGRES_USER: ${JIRA_DB_USER}
+      POSTGRES_PASSWORD: ${JIRA_DB_PASSWORD}
+    networks:
+      - private
+    healthcheck:
+      test: ["CMD", "pg_isready", "-q", "-d", "${JIRA_DB_NAME}", "-U", "${JIRA_DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    restart: ${RESTART_POLICY}
+
+  jira:
+    image: atlassian/jira-software:${JIRA_IMAGE_TAG}
+    container_name: ${JIRA_CONTAINER_NAME}
+    hostname: ${JIRA_HOSTNAME}
+    ports:
+      - "${JIRA_HTTP_BIND_ADDRESS}:${JIRA_HTTP_BIND_PORT}:8080"
+    volumes:
+      - jira-data:${DATA_PATH}
+      - ./agent/atlassian-agent.bak:/opt/atlassian-agent.jar:ro
+    environment:
+      JVM_MINIMUM_MEMORY: ${JIRA_JVM_MINIMUM_MEMORY}
+      JVM_MAXIMUM_MEMORY: ${JIRA_JVM_MAXIMUM_MEMORY}
+      JAVA_OPTS: '-javaagent:/opt/atlassian-agent.jar'
+      ATL_PROXY_NAME: ${JIRA_FQDN}
+      ATL_TOMCAT_SECURE: 'true'
+      ATL_TOMCAT_SCHEME: https
+      ATL_PROXY_PORT: 443
+      ATL_DB_TYPE: postgres72
+      ATL_DB_DRIVER: org.postgresql.Driver
+      ATL_DB_SCHEMA_NAME: public
+      ATL_JDBC_USER: ${JIRA_DB_USER}
+      ATL_JDBC_PASSWORD: ${JIRA_DB_PASSWORD}
+      ATL_JDBC_URL: jdbc:postgresql://postgres:5432/${JIRA_DB_NAME}
+    networks:
+      - private
+      - public
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    stop_grace_period: 2m
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${PUBLIC_NETWORK}"
+      - "traefik.http.routers.jira.rule=Host(`${JIRA_FQDN}`)"
+      - "traefik.http.routers.jira.service=jira"
+      - "traefik.http.routers.jira.entrypoints=${TRAEFIK_ENTRYPOINT}"
+      - "traefik.http.routers.jira.tls=true"
+      - "traefik.http.routers.jira.tls.certresolver=${TRAEFIK_CERTRESOLVER}"
+      - "traefik.http.routers.jira.middlewares=jira-compress"
+      - "traefik.http.middlewares.jira-compress.compress=true"
+      - "traefik.http.services.jira.loadbalancer.server.port=8080"
+      - "traefik.http.services.jira.loadbalancer.passhostheader=true"
+    restart: ${RESTART_POLICY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backups:
+    image: postgres:${JIRA_POSTGRES_IMAGE_TAG}
+    command:
+      - sh
+      - -c
+      - |
+        set -o pipefail
+        sleep "$$BACKUP_INIT_SLEEP"
+        while true; do
+          stamp="$$(date +%Y-%m-%d_%H-%M)"
+          dump="$$POSTGRES_BACKUPS_PATH/$$POSTGRES_BACKUP_NAME-$$stamp.sql.gz"
+          archive="$$DATA_BACKUPS_PATH/$$DATA_BACKUP_NAME-$$stamp.tar.gz"
+          if ! pg_dump -h postgres -d "$$JIRA_DB_NAME" -U "$$JIRA_DB_USER" | gzip > "$$dump"; then
+            echo "postgres backup failed: $$stamp" >&2
+            rm -f "$$dump"
+          fi
+          if ! tar -C "$$DATA_PATH" --exclude=./caches --exclude=./tmp --exclude=./log -czpf "$$archive" .; then
+            echo "data backup failed: $$stamp" >&2
+            rm -f "$$archive"
+          fi
+          find "$$POSTGRES_BACKUPS_PATH" -type f -mtime +"$$POSTGRES_BACKUP_PRUNE_DAYS" -delete
+          find "$$DATA_BACKUPS_PATH" -type f -mtime +"$$DATA_BACKUP_PRUNE_DAYS" -delete
+          sleep "$$BACKUP_INTERVAL"
+        done
+    volumes:
+      - jira-data:${DATA_PATH}:ro
+      - jira-data-backups:${DATA_BACKUPS_PATH}
+      - jira-database-backups:${POSTGRES_BACKUPS_PATH}
+    environment:
+      JIRA_DB_NAME: ${JIRA_DB_NAME}
+      JIRA_DB_USER: ${JIRA_DB_USER}
+      PGPASSWORD: ${JIRA_DB_PASSWORD}
+      BACKUP_INIT_SLEEP: ${BACKUP_INIT_SLEEP}
+      BACKUP_INTERVAL: ${BACKUP_INTERVAL}
+      POSTGRES_BACKUP_PRUNE_DAYS: ${POSTGRES_BACKUP_PRUNE_DAYS}
+      DATA_BACKUP_PRUNE_DAYS: ${DATA_BACKUP_PRUNE_DAYS}
+      POSTGRES_BACKUPS_PATH: ${POSTGRES_BACKUPS_PATH}
+      DATA_BACKUPS_PATH: ${DATA_BACKUPS_PATH}
+      DATA_PATH: ${DATA_PATH}
+      POSTGRES_BACKUP_NAME: ${POSTGRES_BACKUP_NAME}
+      DATA_BACKUP_NAME: ${DATA_BACKUP_NAME}
+    networks:
+      - private
+    restart: ${RESTART_POLICY}
+    depends_on:
+      postgres:
+        condition: service_healthy

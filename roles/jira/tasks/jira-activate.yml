@@ -1,0 +1,71 @@
+---
+- name: Wait until Jira container is healthy
+  ansible.builtin.command: "docker inspect --format={{ '{{.State.Health.Status}}' }} {{ jira_container_name }}"
+  register: jira_health_status
+  changed_when: false
+  until: jira_health_status.stdout == "healthy"
+  retries: "{{ jira_health_retries }}"
+  delay: "{{ jira_health_delay }}"
+
+- name: Pause so user can get server ID from Jira UI
+  ansible.builtin.pause:
+    prompt: "Jira is up at https://{{ jira_fqdn }}. Open the UI, get the server ID, then press Enter."
+
+- name: Prompt for Jira server ID
+  ansible.builtin.pause:
+    prompt: "Enter the Jira server ID"
+  register: jira_server_id_input
+
+- name: Run Atlassian agent with server ID
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - "{{ jira_container_name }}"
+      - java
+      - -jar
+      - "{{ jira_agent_jar_path }}"
+      - -d
+      - -m
+      - "{{ jira_license_email }}"
+      - -o
+      - "{{ jira_license_organization }}"
+      - -p
+      - "{{ jira_license_product }}"
+      - -s
+      - "{{ jira_server_id_input.user_input | trim }}"
+  register: jira_agent_output
+  changed_when: false
+  no_log: "{{ not (jira_show_agent_output | bool) }}"
+
+- name: Show output of agent command
+  ansible.builtin.debug:
+    msg: "{{ jira_agent_output.stdout_lines }}"
+  when: jira_show_agent_output | bool
+
+- name: Extract license from agent output
+  ansible.builtin.set_fact:
+    jira_license: >-
+      {{
+        jira_agent_output.stdout
+        | regex_findall(jira_license_regex)
+        | first
+        | default('')
+        | regex_replace('\s+', '')
+      }}
+
+- name: Fail if license was not extracted
+  ansible.builtin.assert:
+    that:
+      - jira_license | length > 0
+    fail_msg: "Could not extract Jira license from agent output. Check jira_agent_output.stdout."
+
+- name: Show license in single line
+  ansible.builtin.debug:
+    msg: "{{ jira_license }}"
+
+- name: Save license to file
+  ansible.builtin.copy:
+    dest: "{{ jira_license_output_path }}"
+    content: "{{ jira_license }}\n"
+    mode: "0600"

@@ -79,3 +79,6 @@ Desktop.ini
 
 # Config file xray for docker role
 roles/docker/files/config.json
+
+# Atlassian agent binaries used by the confluence and jira roles
+roles/*/files/atlassian-agent.bak

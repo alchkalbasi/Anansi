@@ -1,0 +1,17 @@
+---
+- name: Setup Jira service
+  ansible.builtin.import_tasks: jira-setup.yml
+  tags:
+    - setup_jira
+
+- name: Activate Jira service
+  ansible.builtin.import_tasks: jira-activate.yml
+  tags:
+    - activate_jira
+
+- name: Set cronjob for Jira backup sync
+  ansible.builtin.import_tasks: jira-backup-sync.yml
+  when: jira_remote_backup_enabled | bool
+  tags:
+    - backup
+    - cron
