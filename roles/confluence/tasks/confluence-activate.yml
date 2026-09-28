@@ -1,53 +1,61 @@
 ---
 - name: Wait until confluence container is healthy
-  shell: "docker inspect --format='{{ '{{.State.Health.Status}}' }}' confluence"
+  ansible.builtin.shell: "docker inspect --format='{{ '{{.State.Health.Status}}' }}' {{ confluence_container_name }}"
   register: confluence_status
+  changed_when: false
   until: confluence_status.stdout == "healthy"
-  retries: 30
-  delay: 10
+  retries: "{{ confluence_health_retries }}"
+  delay: "{{ confluence_health_delay }}"
 
 - name: Pause so user can get server ID from confluence UI
-  pause:
+  ansible.builtin.pause:
     prompt: "confluence is up. Please open the UI, get the server ID, then press Enter."
 
 - name: Prompt for confluence server ID
-  pause:
+  ansible.builtin.pause:
     prompt: "Enter the confluence server ID"
   register: confluence_server_id_input
 
 - name: Run Atlassian agent with server ID
-  shell: >
-    docker exec confluence java -jar /opt/atlassian-agent.jar
-    -d -m "{{ confluence_email }}" -o "{{ company }}" -p "{{ service_name }}" -s {{ confluence_server_id_input.user_input }}
-  register: agent_output
+  ansible.builtin.shell: >
+    docker exec {{ confluence_container_name }} java -jar {{ confluence_agent_jar_path }}
+    -d -m "{{ confluence_email }}" -o "{{ confluence_company }}" -p "{{ confluence_service_name }}" -s {{ confluence_server_id_input.user_input }}
+  register: confluence_agent_output
   ignore_errors: true
+  changed_when: false
 
-# - name: Show output of agent command
-#   debug:
-#     msg: "{{ agent_output.stdout | replace('\\n', '\n') }}"
+- name: Show output of agent command
+  ansible.builtin.debug:
+    msg: "{{ confluence_agent_output.stdout | replace('\\n', '\n') }}"
+  when: confluence_show_agent_output | bool
 
-# # docker exec confluence java -jar /opt/atlassian-agent.jar -d -m info@mizban.app -o Mizban -p confluence -s BNZ8-ZQSU-AF4J-27K8
+- name: Extract only the license block
+  ansible.builtin.set_fact:
+    confluence_license_multiline: >-
+      {{
+        confluence_agent_output.stdout
+        | regex_findall(confluence_license_regex)
+        | first
+        | default("")
+        | trim
+      }}
 
+- name: Flatten license newlines
+  ansible.builtin.set_fact:
+    confluence_license: "{{ confluence_license_multiline | regex_replace('\\s+', '') }}"
 
-- name: Extract full license and flatten newlines
-  set_fact:
-    confluence_license: >-
-      {{ agent_output.stdout
-        | regex_findall('([A-Za-z0-9+/=]+)')
-        | join('') }}
+- name: Fail if license was not extracted
+  ansible.builtin.assert:
+    that:
+      - confluence_license | length > 0
+    fail_msg: "Could not extract Confluence license from agent output. Check confluence_agent_output.stdout."
 
 - name: Show license in single line
-  debug:
+  ansible.builtin.debug:
     msg: "{{ confluence_license }}"
 
-# - name: Extract only the license block (multiline)
-#   set_fact:
-#     confluence_license: >-
-#       {{ agent_output.stdout 
-#          | regex_search("(?s)(?<=Your license code\\(Don't copy this line!!!\\):\\s*)([A-Za-z0-9+/=\\n]+)", "\\1") 
-#          | trim }}
-
-# - name: Save license to file
-#   copy:
-#     dest: /tmp/confluence_license.txt
-#     content: "{{ confluence_license }}"
+- name: Save license to file
+  ansible.builtin.copy:
+    dest: "{{ confluence_license_output_path }}"
+    content: "{{ confluence_license }}\n"
+    mode: "0600"
