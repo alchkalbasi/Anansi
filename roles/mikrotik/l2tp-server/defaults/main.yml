@@ -1,0 +1,21 @@
+---
+mikrotik_l2tp_api_host: "{{ ansible_host | default(inventory_hostname) }}"
+mikrotik_l2tp_api_username: "{{ ansible_user | default('') }}"
+mikrotik_l2tp_api_password: "{{ ansible_password | default('') }}"
+mikrotik_l2tp_api_tls: true
+mikrotik_l2tp_api_port: "{{ 8729 if mikrotik_l2tp_api_tls else 8728 }}"
+mikrotik_l2tp_api_validate_certs: true
+mikrotik_l2tp_api_validate_cert_hostname: true
+mikrotik_l2tp_api_ca_path: ""
+mikrotik_l2tp_api_timeout: 30
+
+mikrotik_l2tp_pool_name: l2tp-pool
+# Required: comma-separated IPv4 addresses or start-end ranges.
+mikrotik_l2tp_pool_ranges: ""
+mikrotik_l2tp_profile_name: l2tp-profile
+mikrotik_l2tp_local_address: ""
+mikrotik_l2tp_remote_address: "{{ mikrotik_l2tp_pool_name }}"
+mikrotik_l2tp_secret_name: ""
+mikrotik_l2tp_secret_password: ""
+mikrotik_l2tp_ipsec_secret: ""
+mikrotik_l2tp_server_enabled: true
