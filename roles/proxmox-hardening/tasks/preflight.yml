@@ -77,6 +77,8 @@
       backup: '{{ pve_hardening_backup }}'
       key_escrowed: '{{ pve_hardening_pbs_key_escrowed }}'
       report: '{{ pve_hardening_report }}'
+      iptables_rules: '{{ pve_hardening_iptables_rules }}'
+      iptables_persistent: '{{ pve_hardening_iptables_persistent }}'
   tags: [proxmox-hardening]
 
 - name: Validate SSH connection and rollback window

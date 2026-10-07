@@ -1,0 +1,151 @@
+---
+- name: Validate Proxmox iptables management settings
+  ansible.builtin.assert:
+    that:
+      - (ansible_connection | default('ssh')) == 'ssh'
+      - pve_hardening_iptables_trusted_ipv4 is sequence and pve_hardening_iptables_trusted_ipv4 is not string
+      - pve_hardening_iptables_trusted_ipv6 is sequence and pve_hardening_iptables_trusted_ipv6 is not string
+      - (pve_hardening_iptables_trusted_ipv4 | length) + (pve_hardening_iptables_trusted_ipv6 | length) > 0
+      - pve_hardening_iptables_tcp_ports is sequence and pve_hardening_iptables_tcp_ports is not string
+      - pve_hardening_iptables_udp_ports is sequence and pve_hardening_iptables_udp_ports is not string
+      - pve_hardening_iptables_ssh_port is integer
+      - (pve_hardening_iptables_ssh_port | int) == (ansible_port | default(22) | int)
+      - pve_hardening_iptables_connection_timeout is integer
+      - pve_hardening_iptables_connection_timeout > 0
+      - pve_hardening_iptables_rollback_seconds is integer
+      - pve_hardening_iptables_rollback_seconds > pve_hardening_iptables_connection_timeout + 60
+    fail_msg: Supply trusted IPv4/IPv6 management sources, the current SSH port, and a rollback window longer than the connection test.
+  tags: [proxmox-hardening, proxmox-hardening-iptables]
+
+- name: Validate Proxmox iptables port numbers
+  ansible.builtin.assert:
+    that:
+      - item is integer
+      - item > 0
+      - item < 65536
+    fail_msg: SSH, TCP, and UDP ports must be integers from 1 to 65535.
+  loop: "{{ [pve_hardening_iptables_ssh_port] + pve_hardening_iptables_tcp_ports + pve_hardening_iptables_udp_ports }}"
+  tags: [proxmox-hardening, proxmox-hardening-iptables]
+
+- name: Validate trusted Proxmox iptables address families and CIDRs
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python3
+      - -c
+      - |
+        import ipaddress, json, sys
+        groups = ((4, json.loads(sys.argv[1])), (6, json.loads(sys.argv[2])))
+        for family, values in groups:
+            for value in values:
+                if not isinstance(value, str):
+                    raise ValueError('Trusted source must be an IP address or CIDR string')
+                network = ipaddress.ip_network(value, strict=False)
+                if network.version != family or network.prefixlen == 0:
+                    raise ValueError('Wrong address family or unrestricted source: ' + value)
+      - '{{ pve_hardening_iptables_trusted_ipv4 | to_json }}'
+      - '{{ pve_hardening_iptables_trusted_ipv6 | to_json }}'
+  changed_when: false
+  check_mode: false
+  tags: [proxmox-hardening, proxmox-hardening-iptables]
+
+- name: Check for an active native Proxmox firewall
+  ansible.builtin.command:
+    argv: [systemctl, is-active, '{{ item }}']
+  loop: [pve-firewall.service, proxmox-firewall.service]
+  register: pve_hardening_native_firewalls
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  tags: [proxmox-hardening, proxmox-hardening-iptables]
+
+- name: Require one firewall manager for the host
+  ansible.builtin.assert:
+    that:
+      - pve_hardening_native_firewalls.results | selectattr('stdout', 'equalto', 'active') | list | length == 0
+    fail_msg: An active Proxmox firewall can rewrite iptables rules. Use the native PVE firewall or stop it before selecting this control.
+  tags: [proxmox-hardening, proxmox-hardening-iptables]
+
+- name: Install iptables tooling without starting package services
+  ansible.builtin.apt:
+    name: iptables
+    state: present
+    policy_rc_d: 101
+  tags: [proxmox-hardening, proxmox-hardening-iptables]
+
+- name: Prevent automatic saves while installing persistent iptables tooling
+  ansible.builtin.debconf:
+    name: iptables-persistent
+    question: 'iptables-persistent/autosave_{{ item }}'
+    value: 'false'
+    vtype: boolean
+  loop: [v4, v6]
+  when: pve_hardening_iptables_persistent is sameas true
+  tags: [proxmox-hardening, proxmox-hardening-iptables]
+
+- name: Install persistent iptables tooling without starting its service
+  ansible.builtin.apt:
+    name: iptables-persistent
+    state: present
+    policy_rc_d: 101
+  when: pve_hardening_iptables_persistent is sameas true
+  tags: [proxmox-hardening, proxmox-hardening-iptables]
+
+- name: Create persistent iptables rule directory
+  ansible.builtin.file:
+    path: /etc/iptables
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: pve_hardening_iptables_persistent is sameas true
+  tags: [proxmox-hardening, proxmox-hardening-iptables]
+
+- name: Apply templated IPv4 and IPv6 host rules with timed rollback
+  linux_hardening_transaction:
+    kind: firewall
+    action: apply
+    fragments:
+      iptables: "{{ lookup('ansible.builtin.template', 'iptables-rules.j2', template_vars={'pve_hardening_iptables_ipv6': false}) }}"
+      ip6tables: "{{ lookup('ansible.builtin.template', 'iptables-rules.j2', template_vars={'pve_hardening_iptables_ipv6': true}) }}"
+    policies:
+      INPUT:
+        enabled: true
+        value: DROP
+    persistent: '{{ pve_hardening_iptables_persistent }}'
+    rollback_seconds: '{{ pve_hardening_iptables_rollback_seconds }}'
+  register: pve_hardening_iptables_transaction
+  tags: [proxmox-hardening, proxmox-hardening-iptables]
+
+- name: Close cached SSH connection after Proxmox iptables change
+  ansible.builtin.meta: reset_connection
+  when:
+    - not ansible_check_mode
+    - pve_hardening_iptables_transaction.token is defined
+  tags: [proxmox-hardening, proxmox-hardening-iptables]
+
+- name: Verify fresh management access through Proxmox iptables
+  ansible.builtin.wait_for_connection:
+    timeout: '{{ pve_hardening_iptables_connection_timeout }}'
+    connect_timeout: 5
+    sleep: 2
+  when:
+    - not ansible_check_mode
+    - pve_hardening_iptables_transaction.token is defined
+  tags: [proxmox-hardening, proxmox-hardening-iptables]
+
+- name: Commit Proxmox iptables rules and persistence
+  linux_hardening_transaction:
+    kind: firewall
+    action: commit
+    token: '{{ pve_hardening_iptables_transaction.token }}'
+  when:
+    - not ansible_check_mode
+    - pve_hardening_iptables_transaction.token is defined
+  tags: [proxmox-hardening, proxmox-hardening-iptables]
+
+- name: Enable iptables persistence after committing verified rules
+  ansible.builtin.systemd_service:
+    name: netfilter-persistent
+    enabled: true
+  when: pve_hardening_iptables_persistent is sameas true
+  tags: [proxmox-hardening, proxmox-hardening-iptables]

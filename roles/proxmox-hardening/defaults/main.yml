@@ -12,6 +12,18 @@ pve_hardening_remote_logging: false
 pve_hardening_audit: true
 pve_hardening_backup: false
 pve_hardening_report: true
+pve_hardening_iptables_rules: false
+
+# Host INPUT only; leave guest/SDN FORWARD and host OUTPUT policies unchanged.
+# Supply actual administrator/VPN sources before enabling.
+pve_hardening_iptables_trusted_ipv4: []
+pve_hardening_iptables_trusted_ipv6: []
+pve_hardening_iptables_ssh_port: 22
+pve_hardening_iptables_tcp_ports: [8006]
+pve_hardening_iptables_udp_ports: []
+pve_hardening_iptables_persistent: false
+pve_hardening_iptables_rollback_seconds: 180
+pve_hardening_iptables_connection_timeout: 60
 
 # This role is intentionally limited to standalone PVE 9 / Debian 13 hosts.
 pve_hardening_package_cache_valid_time: 3600

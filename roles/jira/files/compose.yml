@@ -1,8 +1,8 @@
 networks:
-  private:
+  prinet:
     name: ${PRIVATE_NETWORK}
     external: true
-  public:
+  pubnet:
     name: ${PUBLIC_NETWORK}
     external: true
 
@@ -23,7 +23,7 @@ services:
       POSTGRES_USER: ${JIRA_DB_USER}
       POSTGRES_PASSWORD: ${JIRA_DB_PASSWORD}
     networks:
-      - private
+      - prinet
     healthcheck:
       test: ["CMD", "pg_isready", "-q", "-d", "${JIRA_DB_NAME}", "-U", "${JIRA_DB_USER}"]
       interval: 10s
@@ -56,8 +56,8 @@ services:
       ATL_JDBC_PASSWORD: ${JIRA_DB_PASSWORD}
       ATL_JDBC_URL: jdbc:postgresql://postgres:5432/${JIRA_DB_NAME}
     networks:
-      - private
-      - public
+      - prinet
+      - pubnet
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/"]
       interval: 30s
@@ -124,7 +124,7 @@ services:
       POSTGRES_BACKUP_NAME: ${POSTGRES_BACKUP_NAME}
       DATA_BACKUP_NAME: ${DATA_BACKUP_NAME}
     networks:
-      - private
+      - prinet
     restart: ${RESTART_POLICY}
     depends_on:
       postgres:

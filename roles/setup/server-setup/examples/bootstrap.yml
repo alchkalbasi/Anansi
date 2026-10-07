@@ -1,0 +1,52 @@
+---
+- name: Prepare server access and base services
+  hosts: linux_servers
+  gather_facts: true
+  become: true
+  serial: 1
+  vars:
+    server_setup_users:
+      - name: debian
+        authorized_keys:
+          - "{{ lookup('ansible.builtin.file', lookup('ansible.builtin.env', 'HOME') ~ '/.ssh/id_ed25519.pub') }}"
+        sudo: true
+        passwordless_sudo: true
+        workspace: true
+    server_setup_extra_packages:
+      - net-tools
+      - python3-pip
+      - nginx
+      - certbot
+      - python3-certbot-nginx
+  roles:
+    - setup/server-setup
+
+# The initial connection must already use this key-based non-root account.
+# Test that account's SSH and become access before running this second play.
+- name: Apply reviewed Linux hardening after setup
+  hosts: linux_servers
+  gather_facts: true
+  become: true
+  serial: 1
+  vars:
+    # The default blacklist includes sudo. Preserve non-root become access.
+    linux_hardening_suid_blacklist_enabled: false
+    # Leave existing forwarding policy unmanaged.
+    iptables_hardening_default_forward_policy_enabled: false
+    # Protect IPv6 host traffic as well as IPv4 if IPv6 is available.
+    iptables_hardening_ipv6_enabled: true
+    # Dictionaries replace role defaults. Keep existing forwarding settings
+    # unmanaged and IPv6 available for SSH.
+    linux_hardening_sysctl_settings:
+      kernel.randomize_va_space: {enabled: true, value: '2'}
+      kernel.kptr_restrict: {enabled: true, value: '2'}
+      kernel.dmesg_restrict: {enabled: true, value: '1'}
+      fs.protected_hardlinks: {enabled: true, value: '1'}
+      fs.protected_symlinks: {enabled: true, value: '1'}
+      net.ipv4.ip_forward: {enabled: false, value: '1'}
+      net.ipv6.conf.all.forwarding: {enabled: false, value: '1'}
+      net.ipv6.conf.all.disable_ipv6: {enabled: true, value: '0'}
+      net.ipv6.conf.default.disable_ipv6: {enabled: true, value: '0'}
+      net.ipv6.conf.lo.disable_ipv6: {enabled: true, value: '0'}
+  roles:
+    - linux-hardening

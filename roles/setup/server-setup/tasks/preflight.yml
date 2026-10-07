@@ -1,0 +1,101 @@
+---
+- name: Require a supported systemd server
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution | default('') in ['Debian', 'Ubuntu']
+      - >-
+        ansible_facts.distribution_version is version('12', '>=') if ansible_facts.distribution == 'Debian'
+        else ansible_facts.distribution_version is version('22.04', '>=')
+      - ansible_facts.service_mgr | default('') == 'systemd'
+    fail_msg: Gather facts first. Supported hosts are Debian 12+ and Ubuntu 22.04+ with systemd, Python 3 and working become access.
+
+- name: Require YAML booleans for feature switches
+  ansible.builtin.assert:
+    that: item.value is boolean
+    fail_msg: "{{ item.key }} must be a YAML boolean, not a string."
+  loop:
+    - {key: manage_apt_sources, value: "{{ server_setup_manage_apt_sources }}"}
+    - {key: manage_resolv_conf, value: "{{ server_setup_manage_resolv_conf }}"}
+    - {key: apt_backports, value: "{{ server_setup_apt_backports }}"}
+    - {key: apt_source_packages, value: "{{ server_setup_apt_source_packages }}"}
+    - {key: apt_proposed, value: "{{ server_setup_apt_proposed }}"}
+    - {key: install_recommends, value: "{{ server_setup_install_recommends }}"}
+    - {key: upgrade_packages, value: "{{ server_setup_upgrade_packages }}"}
+    - {key: allow_reboot, value: "{{ server_setup_allow_reboot }}"}
+    - {key: time_sync_enabled, value: "{{ server_setup_time_sync_enabled }}"}
+    - {key: journald_enabled, value: "{{ server_setup_journald_enabled }}"}
+    - {key: unattended_upgrades_enabled, value: "{{ server_setup_unattended_upgrades_enabled }}"}
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Validate setup collections and reboot authorization
+  ansible.builtin.assert:
+    that:
+      - server_setup_users is sequence and server_setup_users is not string and server_setup_users is not mapping
+      - server_setup_users | map(attribute='name') | unique | length == server_setup_users | length
+      - server_setup_packages is sequence and server_setup_packages is not string
+      - server_setup_extra_packages is sequence and server_setup_extra_packages is not string
+      - server_setup_ntp_servers is sequence and server_setup_ntp_servers is not string
+      - not server_setup_allow_reboot or server_setup_upgrade_packages
+      - server_setup_apt_cache_valid_time | int >= 0
+      - server_setup_reboot_timeout | int > 0
+    fail_msg: Use lists for users/packages/NTP, unique usernames and authorize package upgrades before authorizing a reboot.
+
+- name: Validate administrator definitions
+  ansible.builtin.assert:
+    that:
+      - item.name is match('^[a-z_][a-z0-9_-]*[$]?$')
+      - item.name != 'root'
+      - item.sudo | default(false) is boolean
+      - item.passwordless_sudo | default(false) is boolean
+      - item.workspace | default(true) is boolean
+      - not (item.passwordless_sudo | default(false)) or (item.sudo | default(false))
+      - item.authorized_keys | default([]) is sequence and item.authorized_keys | default([]) is not string
+      - item.home | default('/home/' ~ item.name) is match('^/[A-Za-z0-9_./-]+$')
+      - item.workspace_path | default('/home/' ~ item.name ~ '/workspace') is match('^/[A-Za-z0-9_./-]+$')
+    fail_msg: Each non-root user needs a safe name/path, a list of public keys and boolean sudo/workspace switches.
+  loop: "{{ server_setup_users }}"
+  loop_control:
+    label: "{{ item.name | default('missing name') }}"
+
+- name: Validate repository replacement paths
+  ansible.builtin.assert:
+    that:
+      - server_setup_apt_sources_to_disable is sequence and server_setup_apt_sources_to_disable is not string
+      - server_setup_manage_apt_sources or server_setup_apt_sources_to_disable | length == 0
+
+- name: Validate additional repository collection
+  ansible.builtin.assert:
+    that:
+      - server_setup_apt_repositories is sequence and server_setup_apt_repositories is not string and server_setup_apt_repositories is not mapping
+      - server_setup_apt_repositories | map(attribute='name') | unique | length == server_setup_apt_repositories | length
+    fail_msg: Use a list of repositories with unique names.
+
+- name: Validate additional signed repository definitions
+  ansible.builtin.assert:
+    that:
+      - item.name | default('') is match('^[A-Za-z0-9_-]+$')
+      - item.url | default('') is match('^https?://[^\s]+$')
+      - (item.key_url is defined) != (item.signed_by is defined)
+      - item.key_url is not defined or item.key_url is match('^https://[^\s]+$')
+      - item.signed_by is not defined or item.signed_by is match('^/(usr/share/keyrings|etc/apt/keyrings)/[A-Za-z0-9_-]+[.](asc|gpg)$')
+      - item.key_format | default('asc') in ['asc', 'gpg']
+      - item.suites is sequence and item.suites is not string and item.suites is not mapping and item.suites | length > 0
+      - item.components is sequence and item.components is not string and item.components is not mapping and item.components | length > 0
+      - item.architectures | default([]) is sequence and item.architectures | default([]) is not string and item.architectures | default([]) is not mapping
+      - item.suites | reject('match', '^[A-Za-z0-9_-]+$') | list | length == 0
+      - item.components | reject('match', '^[A-Za-z0-9_-]+$') | list | length == 0
+      - item.architectures | default([]) | reject('match', '^[A-Za-z0-9_-]+$') | list | length == 0
+      - "('/etc/apt/sources.list.d/server-setup-' ~ item.name ~ '.sources') not in server_setup_apt_sources_to_disable"
+    fail_msg: Repositories need a safe name, URL, either an HTTPS key_url or an existing signed_by keyring, asc/gpg key format and lists of suites/components/architectures. Their managed sources cannot be disabled.
+  loop: "{{ server_setup_apt_repositories }}"
+  loop_control:
+    label: "{{ item.name | default('missing name') }}"
+
+- name: Limit repository replacement to explicit APT source files
+  ansible.builtin.assert:
+    that:
+      - item == '/etc/apt/sources.list' or item is match('^/etc/apt/sources[.]list[.]d/[A-Za-z0-9_-]+[.](list|sources)$')
+      - item != '/etc/apt/sources.list.d/server-setup.sources'
+    fail_msg: Only explicit source files can be disabled; wildcards and the managed server-setup.sources are forbidden.
+  loop: "{{ server_setup_apt_sources_to_disable }}"

@@ -1,0 +1,93 @@
+---
+- name: Configure explicitly selected OS repositories
+  ansible.builtin.template:
+    src: apt.sources.j2
+    dest: /etc/apt/sources.list.d/server-setup.sources
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  when: server_setup_manage_apt_sources
+  register: server_setup_apt_sources_result
+
+- name: Disable explicitly replaced source files without deleting their contents
+  ansible.builtin.command:
+    argv: [mv, "{{ item }}", "{{ item }}.server-setup-disabled"]
+    removes: "{{ item }}"
+    creates: "{{ item }}.server-setup-disabled"
+  loop: "{{ server_setup_apt_sources_to_disable }}"
+  register: server_setup_apt_disabled_result
+
+- name: Install HTTPS trust certificates before downloading repository keys
+  ansible.builtin.apt:
+    name: ca-certificates
+    state: present
+    update_cache: true
+    cache_valid_time: "{{ 0 if server_setup_apt_sources_result.changed or server_setup_apt_disabled_result.changed else server_setup_apt_cache_valid_time }}"
+    install_recommends: false
+    lock_timeout: 120
+  when: server_setup_apt_repositories | length > 0
+
+- name: Create the local APT keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: server_setup_apt_repositories | length > 0
+
+- name: Download repository signing keys
+  ansible.builtin.get_url:
+    url: "{{ item.key_url }}"
+    dest: "/etc/apt/keyrings/server-setup-{{ item.name }}.{{ item.key_format | default('asc') }}"
+    checksum: "{{ item.key_checksum | default(omit) }}"
+    owner: root
+    group: root
+    mode: '0644'
+    force: true
+  loop: "{{ server_setup_apt_repositories }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: server_setup_apt_keys_result
+  when: item.key_url is defined
+
+- name: Configure additional signed repositories
+  ansible.builtin.template:
+    src: apt-repository.sources.j2
+    dest: "/etc/apt/sources.list.d/server-setup-{{ item.name }}.sources"
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  loop: "{{ server_setup_apt_repositories }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: server_setup_apt_repositories_result
+
+- name: Refresh package indexes
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: >-
+      {{ 0 if server_setup_apt_sources_result.changed or server_setup_apt_disabled_result.changed
+         or server_setup_apt_keys_result.changed or server_setup_apt_repositories_result.changed
+         else server_setup_apt_cache_valid_time }}
+    lock_timeout: 120
+
+- name: Install base and explicitly selected additional packages
+  ansible.builtin.apt:
+    name: "{{ (server_setup_packages + server_setup_extra_packages) | unique }}"
+    state: present
+    install_recommends: "{{ server_setup_install_recommends }}"
+    fail_on_autoremove: true
+    lock_timeout: 120
+
+- name: Upgrade installed packages only when authorized
+  ansible.builtin.apt:
+    upgrade: safe
+    force_apt_get: true
+    fail_on_autoremove: true
+    dpkg_options: force-confdef,force-confold
+    lock_timeout: 120
+  register: server_setup_package_upgrade_result
+  when: server_setup_upgrade_packages

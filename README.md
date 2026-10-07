@@ -15,6 +15,8 @@ networking, observability, and collaboration platforms.
 
 - **Infrastructure and system setup:** Docker, iptables, downloads, and
   general host setup.
+- **Server bootstrap:** [server setup](roles/setup/server-setup/README.md)
+  with `server-setup.yml`, followed by the existing Linux hardening role.
 - **Proxmox VE:** opt-in [standalone PVE 9 hardening](roles/proxmox-hardening/README.md)
   with a dedicated `proxmox-hardening.yml` playbook.
 - **Applications and services:** Jitsi, Confluence, Mattermost, NetBox,

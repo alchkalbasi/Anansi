@@ -1,0 +1,15 @@
+# Managed by Ansible (server-setup).
+Types: deb{% if server_setup_apt_source_packages %} deb-src{% endif %}
+
+URIs: {{ server_setup_apt_mirror }}
+Suites: {{ ansible_facts.distribution_release }} {{ ansible_facts.distribution_release }}-updates{% if server_setup_apt_backports %} {{ ansible_facts.distribution_release }}-backports{% endif %}{% if server_setup_apt_proposed %} {{ ansible_facts.distribution_release }}{{ '-proposed-updates' if ansible_facts.distribution == 'Debian' else '-proposed' }}{% endif %}
+
+Components: {{ server_setup_apt_components | join(' ') }}
+Signed-By: /usr/share/keyrings/{{ 'debian-archive-keyring.gpg' if ansible_facts.distribution == 'Debian' else 'ubuntu-archive-keyring.gpg' }}
+
+Types: deb{% if server_setup_apt_source_packages %} deb-src{% endif %}
+
+URIs: {{ server_setup_apt_security_mirror }}
+Suites: {{ ansible_facts.distribution_release }}-security
+Components: {{ server_setup_apt_components | join(' ') }}
+Signed-By: /usr/share/keyrings/{{ 'debian-archive-keyring.gpg' if ansible_facts.distribution == 'Debian' else 'ubuntu-archive-keyring.gpg' }}

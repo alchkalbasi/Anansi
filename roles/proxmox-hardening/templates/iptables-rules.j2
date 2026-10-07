@@ -1,0 +1,21 @@
+# Managed host INPUT controls. The transaction module merges these into the
+# existing filter table and leaves FORWARD, OUTPUT, and other chains intact.
+# control:pve_invalid
+-A INPUT -m conntrack --ctstate INVALID -j DROP
+# control:pve_loopback
+-A INPUT -i lo -j ACCEPT
+# control:pve_established
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+# control:pve_icmp
+-A INPUT -p {{ 'ipv6-icmp' if pve_hardening_iptables_ipv6 else 'icmp' }} -j ACCEPT
+# control:pve_management
+{% set networks = pve_hardening_iptables_trusted_ipv6 if pve_hardening_iptables_ipv6 else pve_hardening_iptables_trusted_ipv4 %}
+{% for network in networks %}
+-A INPUT -s {{ network }} -p tcp --dport {{ pve_hardening_iptables_ssh_port }} -m conntrack --ctstate NEW -j ACCEPT
+{% for port in pve_hardening_iptables_tcp_ports | unique | sort %}
+-A INPUT -s {{ network }} -p tcp --dport {{ port }} -m conntrack --ctstate NEW -j ACCEPT
+{% endfor %}
+{% for port in pve_hardening_iptables_udp_ports | unique | sort %}
+-A INPUT -s {{ network }} -p udp --dport {{ port }} -m conntrack --ctstate NEW -j ACCEPT
+{% endfor %}
+{% endfor %}

@@ -1,3 +1,75 @@
-#SPDX-License-Identifier: MIT-0
 ---
-# defaults file for server-setup
+# Disabled features are left unmanaged; false does not undo previous changes.
+server_setup_manage_apt_sources: true
+server_setup_apt_mirror: >-
+  {{ 'https://deb.debian.org/debian' if ansible_facts.distribution == 'Debian'
+     else 'https://archive.ubuntu.com/ubuntu' }}
+server_setup_apt_security_mirror: >-
+  {{ 'https://security.debian.org/debian-security' if ansible_facts.distribution == 'Debian'
+     else 'https://security.ubuntu.com/ubuntu' }}
+server_setup_apt_components: >-
+  {{ ['main', 'contrib', 'non-free', 'non-free-firmware'] if ansible_facts.distribution == 'Debian'
+     else ['main', 'restricted', 'universe', 'multiverse'] }}
+server_setup_apt_backports: false
+server_setup_apt_source_packages: false
+server_setup_apt_proposed: false
+# Explicit paths only. Each file is renamed to PATH.server-setup-disabled.
+# Do not include third-party repositories or the role's own source file.
+server_setup_apt_sources_to_disable: []
+# Additional signed repositories. Keys are downloaded before sources are enabled.
+# Each entry: name, url, suites (list), components (list), either key_url
+# or signed_by (existing keyring path under /usr/share/keyrings or /etc/apt/keyrings),
+# key_format (asc for ASCII-armored keys, gpg for binary keys),
+# optional key_checksum (e.g. sha256:...), architectures (list).
+server_setup_apt_repositories: []
+server_setup_apt_cache_valid_time: 3600
+server_setup_install_recommends: false
+server_setup_upgrade_packages: false
+server_setup_allow_reboot: false
+server_setup_reboot_timeout: 900
+server_setup_packages:
+  - sudo
+  - ca-certificates
+  - curl
+  - dnsutils
+  - git
+  - htop
+  - vim
+  - openssh-server
+  - python3
+  - python3-apt
+  - cron
+  - logrotate
+  - tzdata
+server_setup_extra_packages: []
+
+# Default administrator account; override the username in inventory/group vars.
+# Existing users retain their home, shell and groups.
+# New users get /home/NAME, /bin/bash and a locked password by default.
+server_setup_username: debian
+# Override this list to provision multiple users or set it to [] to skip users.
+# Each entry supports: name, home, shell, groups, password (hash),
+# authorized_keys (list), sudo (bool), passwordless_sudo (bool),
+# workspace (bool), workspace_path, workspace_mode.
+server_setup_users:
+  - name: "{{ server_setup_username }}"
+    sudo: true
+    passwordless_sudo: true
+
+# Override resolver settings in inventory host/group vars as needed.
+server_setup_manage_resolv_conf: true
+server_setup_resolv_nameservers:
+  - 8.8.8.8
+  - 1.1.1.1
+server_setup_resolv_search: []
+server_setup_resolv_options: []
+
+server_setup_timezone: UTC
+server_setup_time_sync_enabled: true
+# Empty preserves the distribution's NTP servers. Use IPs or DNS names.
+server_setup_ntp_servers: []
+server_setup_journald_enabled: true
+server_setup_journal_max_use: 512M
+server_setup_journal_keep_free: 1G
+server_setup_journal_retention: 1month
+server_setup_unattended_upgrades_enabled: false

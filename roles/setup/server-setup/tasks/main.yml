@@ -1,3 +1,24 @@
-#SPDX-License-Identifier: MIT-0
 ---
-# tasks file for server-setup
+- name: Validate server setup prerequisites
+  ansible.builtin.import_tasks: preflight.yml
+  tags: [server-setup, server-setup-apt, server-setup-users, server-setup-system]
+
+- name: Configure the host resolver before package operations
+  ansible.builtin.import_tasks: resolv.yml
+  tags: [server-setup, server-setup-system]
+
+- name: Configure repositories and base packages
+  ansible.builtin.import_tasks: apt.yml
+  tags: [server-setup, server-setup-apt]
+
+- name: Provision administrator access and workspaces
+  ansible.builtin.import_tasks: users.yml
+  tags: [server-setup, server-setup-users]
+
+- name: Configure basic host services
+  ansible.builtin.import_tasks: system.yml
+  tags: [server-setup, server-setup-system]
+
+- name: Finish setup and report reboot state
+  ansible.builtin.import_tasks: finish.yml
+  tags: [server-setup, server-setup-apt, server-setup-users, server-setup-system]

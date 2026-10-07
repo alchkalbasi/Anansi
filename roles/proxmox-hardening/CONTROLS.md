@@ -15,7 +15,7 @@ not configured by this role and remain part of completing the host hardening.
 | 1.2.1 Secure Boot / lockdown | Read-only observations; firmware/bootloader changes manual, using the actual boot path. |
 | 1.2.2 Network separation | Manual management/iLO/storage/guest VLAN and switch configuration. |
 | 1.2.3 Subscription | Operational choice; repositories/license unchanged. |
-| 1.2.4–1.2.5 PVE firewall | Manual native firewall policy below; status/compile observations available. No backend switch or raw FORWARD policy replacement. |
+| 1.2.4–1.2.5 PVE firewall | Manual native firewall policy below, or opt-in templated host iptables INPUT rules with timed rollback. No backend switch or raw FORWARD policy replacement. |
 | 1.2.6 KSM | `ksm`; stops new merging, optional guarded unmerge. Per-VM Allow KSM settings reviewed separately. |
 | 1.2.7–1.2.8 VM/container isolation | Manual workload design and privilege review; no conversion/removal of existing containers. |
 | 1.3 SDN | Manual only if used. Do not blindly disable IP forwarding on routed/NAT/SDN hosts. |
@@ -68,8 +68,10 @@ and storage paths. Keep recovery access open while making these changes:
    traffic without guest connectivity testing.
 
 This role's GUI Fail2Ban jail supplements this policy; it is not a default-deny
-host firewall. Native firewall automation remains outside this role; document management source
-addresses, storage paths and a tested recovery strategy before enabling it.
+host firewall. Native PVE firewall automation remains outside this role. The optional `iptables`
+control is an alternative host INPUT policy and requires the native firewall to
+be inactive. Document management source addresses, storage paths and a tested
+recovery strategy before enabling either path.
 
 ## HPE Gen10 operations
 
