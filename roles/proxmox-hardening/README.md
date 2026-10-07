@@ -67,6 +67,7 @@ Each tag is prefixed by `proxmox-hardening-`; `proxmox-hardening` selects all.
 | `logging` | `journald`, `remote_logging` | Bounded persistent journal and optional TLS rsyslog forwarding |
 | `audit` | `audit` | Persistent local `/etc/pve` write/attribute watch |
 | `backup` | `backup` | Encrypted configuration backup service and timer for an existing PBS |
+| `iptables` | `iptables_rules` | Optional IPv4/IPv6 host INPUT rules from one Jinja2 template, applied with rollback and a fresh SSH check |
 | `report` | `report` | Read-only SSH, firewall, storage, boot and service observations |
 
 ### SSH server
@@ -91,7 +92,7 @@ configuration and PVE-managed keys/symlinks are preserved. Existing `Match`
 exceptions are also preserved: review `sshd -T -C user=<admin>,host=<client-name>,addr=<client-IP>`
 for each required access path; the global policy does not override those exceptions.
 
-The role shares the repository's SSH transaction module through a relative
+The role shares the repository's SSH and firewall transaction module through a relative
 library symlink; it does not execute the generic linux-hardening role. Keep both
 role directories when copying this role. The module stages and validates the
 complete configuration with `sshd -t`, handles local Include precedence, reloads
@@ -106,6 +107,38 @@ and its systemd timer from iLO. Never remove pending transaction state or stop i
 watchdog. A rolled-back journal requires inspection before a retry. Avoid running
 another SSH configuration manager concurrently. Setting the switch back to false
 leaves previously applied settings in place.
+
+### Host iptables rules
+
+Set `pve_hardening_iptables_rules: true` only after reviewing the host's current
+firewall, guest networking, and recovery access. This alternative to the native
+PVE firewall refuses to run while `pve-firewall.service` or
+`proxmox-firewall.service` is active. The task file is
+`tasks/iptables-rules.yml`; `templates/iptables-rules.j2` supplies the rules.
+It manages IPv4 and IPv6 INPUT with a DROP policy, allows loopback, established
+traffic and ICMP/ICMPv6, then allows the current SSH port and configured TCP/UDP
+ports from trusted sources. The default TCP port list contains the PVE GUI port
+8006. Both IP families are protected, even when one trusted source list is empty.
+The role preserves FORWARD, OUTPUT and existing foreign rules, so inspect those
+rules for any wider host access before relying on the policy.
+
+Populate `pve_hardening_iptables_trusted_ipv4` and/or
+`pve_hardening_iptables_trusted_ipv6` with administrator/VPN addresses or CIDRs.
+At least one source is required; `/0` is rejected. Set
+`pve_hardening_iptables_ssh_port` to the actual Ansible SSH port and extend
+`pve_hardening_iptables_tcp_ports` or `pve_hardening_iptables_udp_ports` only
+for required host services. Confirm independent iLO console access first.
+The role tests candidate rules, applies them under a timed rollback, opens a
+fresh SSH connection, then commits. A failed check leaves the watchdog armed.
+Do not remove `/run/linux-hardening-firewall` while a pending transaction or
+rollback timer exists. Review that state from iLO before retrying.
+
+Rules are live only by default. To save them to `/etc/iptables/rules.v4` and
+`rules.v6` and enable `netfilter-persistent`, set
+`pve_hardening_iptables_persistent: true`. This installs
+`iptables-persistent` with its automatic package-time save disabled. Review
+boot behavior and any other firewall manager before enabling persistence.
+Setting `pve_hardening_iptables_rules: false` leaves existing rules unmanaged.
 
 ### Updates and KSM
 

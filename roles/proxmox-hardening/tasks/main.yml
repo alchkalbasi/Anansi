@@ -12,6 +12,7 @@
     - proxmox-hardening-audit
     - proxmox-hardening-backup
     - proxmox-hardening-report
+    - proxmox-hardening-iptables
 
 - name: Harden the SSH server with connection verification
   ansible.builtin.import_tasks: sshd.yml
@@ -51,6 +52,11 @@
   ansible.builtin.import_tasks: backup.yml
   when: pve_hardening_backup is sameas true
   tags: [proxmox-hardening, proxmox-hardening-backup]
+
+- name: Apply Proxmox host iptables rules with rollback
+  ansible.builtin.import_tasks: iptables-rules.yml
+  when: pve_hardening_iptables_rules is sameas true
+  tags: [proxmox-hardening, proxmox-hardening-iptables]
 
 - name: Show read-only host observations
   ansible.builtin.import_tasks: report.yml

@@ -1,3 +1,2 @@
-#SPDX-License-Identifier: MIT-0
 ---
-# vars file for server-setup
+# Public configuration belongs in defaults/main.yml.

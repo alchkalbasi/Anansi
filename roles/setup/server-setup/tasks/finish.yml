@@ -1,0 +1,23 @@
+---
+- name: Apply pending setup service changes
+  ansible.builtin.meta: flush_handlers
+
+- name: Inspect the distribution reboot-required marker
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: server_setup_reboot_required
+
+- name: Report a pending reboot
+  ansible.builtin.debug:
+    msg: Packages report a pending reboot. Schedule a maintenance window or explicitly enable both upgrade_packages and allow_reboot.
+  when: server_setup_reboot_required.stat.exists
+
+- name: Reboot only when explicitly authorized
+  ansible.builtin.reboot:
+    reboot_timeout: "{{ server_setup_reboot_timeout }}"
+  when:
+    - server_setup_package_upgrade_result is defined
+    - not (server_setup_package_upgrade_result.skipped | default(false))
+    - server_setup_upgrade_packages
+    - server_setup_allow_reboot
+    - server_setup_reboot_required.stat.exists

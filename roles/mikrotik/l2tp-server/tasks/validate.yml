@@ -1,0 +1,50 @@
+---
+- name: Validate required non-secret strings
+  ansible.builtin.assert:
+    that:
+      - item is string
+      - item | trim | length > 0
+      - item == item | trim
+    fail_msg: Set non-empty API host, username, pool, profile, addressing, and PPP username variables without surrounding whitespace.
+    quiet: true
+  loop:
+    - "{{ mikrotik_l2tp_api_host }}"
+    - "{{ mikrotik_l2tp_api_username }}"
+    - "{{ mikrotik_l2tp_pool_name }}"
+    - "{{ mikrotik_l2tp_pool_ranges }}"
+    - "{{ mikrotik_l2tp_profile_name }}"
+    - "{{ mikrotik_l2tp_local_address }}"
+    - "{{ mikrotik_l2tp_remote_address }}"
+    - "{{ mikrotik_l2tp_secret_name }}"
+
+- name: Validate credentials without logging their values
+  ansible.builtin.assert:
+    that:
+      - mikrotik_l2tp_api_password is string
+      - mikrotik_l2tp_api_password | length > 0
+      - mikrotik_l2tp_secret_password is string
+      - mikrotik_l2tp_secret_password | length > 0
+      - mikrotik_l2tp_ipsec_secret is string
+      - mikrotik_l2tp_ipsec_secret | length > 0
+    fail_msg: API password, PPP password, and IPsec pre-shared key are required; store them in Ansible Vault.
+    quiet: true
+  no_log: true
+
+- name: Validate connection options and VPN addressing
+  ansible.builtin.assert:
+    that:
+      - mikrotik_l2tp_api_tls is boolean
+      - mikrotik_l2tp_api_validate_certs is boolean
+      - mikrotik_l2tp_api_validate_cert_hostname is boolean
+      - mikrotik_l2tp_server_enabled is boolean
+      - mikrotik_l2tp_api_port | string is match('^[0-9]+$')
+      - mikrotik_l2tp_api_port | int >= 1
+      - mikrotik_l2tp_api_port | int <= 65535
+      - mikrotik_l2tp_api_timeout | string is match('^[0-9]+$')
+      - mikrotik_l2tp_api_timeout | int > 0
+      - mikrotik_l2tp_api_ca_path is string
+      - >-
+        mikrotik_l2tp_pool_ranges | mikrotik_l2tp_validate_addresses(
+          mikrotik_l2tp_local_address, mikrotik_l2tp_remote_address, mikrotik_l2tp_pool_name)
+    fail_msg: Invalid L2TP addressing, API port/timeout, or boolean option.
+    quiet: true

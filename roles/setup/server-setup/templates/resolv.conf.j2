@@ -1,0 +1,10 @@
+# Managed by Ansible (server-setup).
+{% if server_setup_resolv_search | length > 0 %}
+search {{ server_setup_resolv_search | join(' ') }}
+{% endif %}
+{% for nameserver in server_setup_resolv_nameservers %}
+nameserver {{ nameserver }}
+{% endfor %}
+{% if server_setup_resolv_options | length > 0 %}
+options {{ server_setup_resolv_options | join(' ') }}
+{% endif %}

@@ -1,0 +1,108 @@
+---
+- name: Set the server timezone
+  community.general.timezone:
+    name: "{{ server_setup_timezone }}"
+  when: server_setup_timezone | length > 0
+
+- name: Enable the distribution cron scheduler
+  ansible.builtin.systemd_service:
+    name: cron
+    enabled: true
+    state: started
+
+- name: Install systemd time synchronization
+  ansible.builtin.apt:
+    name: systemd-timesyncd
+    state: present
+    install_recommends: false
+    fail_on_autoremove: true
+    lock_timeout: 120
+  when: server_setup_time_sync_enabled
+
+- name: Create time synchronization configuration directory
+  ansible.builtin.file:
+    path: /etc/systemd/timesyncd.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when:
+    - server_setup_time_sync_enabled
+    - server_setup_ntp_servers | length > 0
+
+- name: Configure selected NTP servers
+  ansible.builtin.copy:
+    dest: /etc/systemd/timesyncd.conf.d/90-server-setup.conf
+    content: |
+      # Managed by Ansible (server-setup).
+      [Time]
+      NTP={{ server_setup_ntp_servers | join(' ') }}
+    owner: root
+    group: root
+    mode: '0644'
+  when:
+    - server_setup_time_sync_enabled
+    - server_setup_ntp_servers | length > 0
+  notify: Server setup restart time synchronization
+
+- name: Start and enable time synchronization
+  ansible.builtin.systemd_service:
+    name: systemd-timesyncd
+    state: started
+    enabled: true
+  when: server_setup_time_sync_enabled
+
+- name: Create journal configuration directory
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: server_setup_journald_enabled
+
+- name: Persist logs with bounded disk use and retention
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/90-server-setup.conf
+    content: |
+      # Managed by Ansible (server-setup).
+      [Journal]
+      Storage=persistent
+      SystemMaxUse={{ server_setup_journal_max_use }}
+      SystemKeepFree={{ server_setup_journal_keep_free }}
+      MaxRetentionSec={{ server_setup_journal_retention }}
+    owner: root
+    group: root
+    mode: '0644'
+  when: server_setup_journald_enabled
+  notify: Server setup restart journal
+
+- name: Install unattended security update tooling when authorized
+  ansible.builtin.apt:
+    name: unattended-upgrades
+    state: present
+    install_recommends: false
+    lock_timeout: 120
+  when: server_setup_unattended_upgrades_enabled
+
+- name: Schedule unattended updates without automatic reboots
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/90-server-setup-unattended
+    content: |
+      // Managed by Ansible (server-setup).
+      // Allowed origins remain the distribution's package-maintained policy.
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      Unattended-Upgrade::Automatic-Reboot "false";
+    owner: root
+    group: root
+    mode: '0644'
+  when: server_setup_unattended_upgrades_enabled
+
+- name: Enable package update timers when unattended updates are authorized
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop: [apt-daily.timer, apt-daily-upgrade.timer]
+  when: server_setup_unattended_upgrades_enabled

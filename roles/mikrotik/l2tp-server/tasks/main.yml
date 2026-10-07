@@ -1,0 +1,120 @@
+---
+- name: Validate L2TP settings before connecting
+  ansible.builtin.import_tasks: validate.yml
+
+- name: Configure RouterOS through the controller API connection
+  delegate_to: localhost
+  become: false
+  vars:
+    ansible_connection: local
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+  module_defaults:
+    group/community.routeros.api:
+      hostname: "{{ mikrotik_l2tp_api_host }}"
+      username: "{{ mikrotik_l2tp_api_username }}"
+      password: "{{ mikrotik_l2tp_api_password }}"
+      port: "{{ mikrotik_l2tp_api_port }}"
+      tls: "{{ mikrotik_l2tp_api_tls }}"
+      validate_certs: "{{ mikrotik_l2tp_api_validate_certs }}"
+      validate_cert_hostname: "{{ mikrotik_l2tp_api_validate_cert_hostname }}"
+      ca_path: "{{ mikrotik_l2tp_api_ca_path | default(omit, true) }}"
+      timeout: "{{ mikrotik_l2tp_api_timeout }}"
+      encoding: UTF-8
+  block:
+    - name: Read pools, profiles, and secrets including built-in entries
+      community.routeros.api_info:
+        path: "{{ item }}"
+        include_builtin: true
+        include_dynamic: true
+      loop:
+        - ip pool
+        - ppp profile
+        - ppp secret
+      register: _mikrotik_l2tp_existing
+      no_log: true
+
+    - name: Identify resources with the requested names
+      ansible.builtin.set_fact:
+        _mikrotik_l2tp_pools: >-
+          {{ _mikrotik_l2tp_existing.results[0].result
+             | selectattr('name', 'defined') | selectattr('name', 'equalto', mikrotik_l2tp_pool_name) | list }}
+        _mikrotik_l2tp_profiles: >-
+          {{ _mikrotik_l2tp_existing.results[1].result
+             | selectattr('name', 'defined') | selectattr('name', 'equalto', mikrotik_l2tp_profile_name) | list }}
+        _mikrotik_l2tp_secrets: >-
+          {{ _mikrotik_l2tp_existing.results[2].result
+             | selectattr('name', 'defined') | selectattr('name', 'equalto', mikrotik_l2tp_secret_name) | list }}
+      no_log: true
+
+    - name: Reject ambiguous existing resources
+      ansible.builtin.assert:
+        that:
+          - _mikrotik_l2tp_pools | length <= 1
+          - _mikrotik_l2tp_profiles | length <= 1
+          - _mikrotik_l2tp_secrets | length <= 1
+        fail_msg: Duplicate L2TP resource names exist on the router; resolve them before continuing.
+        quiet: true
+
+    - name: Validate an alternate remote pool exists before any writes
+      ansible.builtin.assert:
+        that:
+          - >-
+            mikrotik_l2tp_remote_address == mikrotik_l2tp_pool_name
+            or mikrotik_l2tp_remote_address is match('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
+            or mikrotik_l2tp_remote_address in (
+              _mikrotik_l2tp_existing.results[0].result
+              | selectattr('name', 'defined') | map(attribute='name') | list)
+        fail_msg: The alternate remote-address pool must already exist on the router.
+        quiet: true
+
+    - name: Create the IP pool only when missing
+      community.routeros.api_modify:
+        path: ip pool
+        handle_absent_entries: ignore
+        handle_entries_content: ignore
+        data:
+          - name: "{{ mikrotik_l2tp_pool_name }}"
+            ranges: "{{ mikrotik_l2tp_pool_ranges }}"
+      when: _mikrotik_l2tp_pools | length == 0
+
+    - name: Create the PPP profile only when missing
+      community.routeros.api_modify:
+        path: ppp profile
+        handle_absent_entries: ignore
+        handle_entries_content: ignore
+        data:
+          - name: "{{ mikrotik_l2tp_profile_name }}"
+            local-address: "{{ mikrotik_l2tp_local_address }}"
+            remote-address: "{{ mikrotik_l2tp_remote_address }}"
+            use-encryption: required
+      when: _mikrotik_l2tp_profiles | length == 0
+
+    - name: Create the L2TP PPP secret only when missing
+      community.routeros.api_modify:
+        path: ppp secret
+        handle_absent_entries: ignore
+        handle_entries_content: ignore
+        data:
+          - name: "{{ mikrotik_l2tp_secret_name }}"
+            password: "{{ mikrotik_l2tp_secret_password }}"
+            profile: "{{ mikrotik_l2tp_profile_name }}"
+            service: l2tp
+            disabled: false
+      when: _mikrotik_l2tp_secrets | length == 0
+      no_log: true
+      diff: false
+
+    - name: Configure the L2TP server with required IPsec protection
+      community.routeros.api_modify:
+        path: interface l2tp-server server
+        handle_absent_entries: ignore
+        handle_entries_content: ignore
+        data:
+          - enabled: "{{ mikrotik_l2tp_server_enabled }}"
+            default-profile: "{{ mikrotik_l2tp_profile_name }}"
+            authentication: mschap2
+            use-ipsec: required
+            ipsec-secret: "{{ mikrotik_l2tp_ipsec_secret }}"
+            allow-fast-path: false
+      no_log: true
+      diff: false

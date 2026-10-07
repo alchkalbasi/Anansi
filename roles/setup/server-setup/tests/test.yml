@@ -1,6 +1,7 @@
-#SPDX-License-Identifier: MIT-0
 ---
-- hosts: localhost
-  remote_user: root
+- name: Validate server setup syntax
+  hosts: localhost
+  gather_facts: true
+  become: true
   roles:
-    - server-setup
+    - setup/server-setup

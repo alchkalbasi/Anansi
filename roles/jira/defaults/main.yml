@@ -1,0 +1,67 @@
+---
+# defaults file for jira
+jira_domain: example.com
+jira_subdomain: jira
+jira_fqdn: "{{ jira_subdomain }}.{{ jira_domain }}"
+jira_project_dir: /opt/services
+jira_service_dir: "{{ jira_project_dir }}/jira"
+jira_service_dir_mode: "0755"
+jira_service_subdirs:
+  - agent
+jira_compose_project_name: "{{ jira_service_dir | basename }}"
+jira_restart_policy: unless-stopped
+jira_image_tag: "10.3.21-jdk17"
+jira_postgres_image_tag: "16-alpine"
+jira_hostname: "{{ jira_subdomain }}"
+jira_container_name: "{{ jira_hostname }}"
+jira_http_bind_address: 127.0.0.1
+jira_http_bind_port: 8080
+jira_data_path: /var/atlassian/application-data/jira
+jira_jvm_minimum_memory: "2048m"
+jira_jvm_maximum_memory: "3072m"
+
+jira_docker_private_network: prinet
+jira_docker_public_network: pubnet
+jira_traefik_entrypoint: web-secure
+jira_traefik_certresolver: le
+
+jira_postgres_backups_path: /backups/jira-postgres
+jira_data_backups_path: /backups/jira-data
+jira_backup_init_sleep: 90s
+jira_backup_interval: 86400
+jira_postgres_backup_prune_days: 7
+jira_data_backup_prune_days: 7
+jira_postgres_backup_name: jira-postgres
+jira_data_backup_name: jira-data
+
+jira_remote_backup_enabled: false
+jira_remote_backup_user: backup
+jira_remote_backup_host: ""
+jira_remote_backup_port: 22
+jira_remote_backup_path: /backups/jira
+jira_remote_backup_identity_file: /root/.ssh/id_ed25519
+jira_remote_backup_strict_host_key_checking: true
+jira_remote_backup_known_hosts: []
+jira_remote_backup_script_path: "{{ jira_service_dir }}/jira-backup-sync.sh"
+jira_remote_backup_log_path: /var/log/jira-backup-sync.log
+jira_remote_backup_cron_file: jira_backup_sync
+jira_remote_backup_cron_minute: "17"
+jira_remote_backup_cron_hour: "04"
+jira_remote_backup_cron_day: "*"
+jira_remote_backup_cron_month: "*"
+jira_remote_backup_cron_weekday: "*"
+
+jira_license_email: info@example.com
+jira_license_organization: COMP
+jira_license_product: jira
+jira_agent_jar_path: /opt/atlassian-agent.jar
+jira_health_retries: 30
+jira_health_delay: 10
+jira_show_agent_output: true
+jira_license_regex: '(?s)Your license code\(Don''t copy this line!!!\):\s*([A-Za-z0-9+/=\r\n]+)\s*$'
+jira_license_output_path: /tmp/jira_license.txt
+
+# secret vars: override these from vaulted inventory vars
+jira_db_name: jira
+jira_db_user: jira
+jira_db_password: change-me

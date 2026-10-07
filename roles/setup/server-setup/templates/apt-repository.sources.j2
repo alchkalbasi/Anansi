@@ -1,0 +1,9 @@
+# Managed by Ansible (server-setup).
+Types: deb
+URIs: {{ item.url }}
+Suites: {{ item.suites | join(' ') }}
+Components: {{ item.components | join(' ') }}
+{% if item.architectures | default([]) | length > 0 %}
+Architectures: {{ item.architectures | join(' ') }}
+{% endif %}
+Signed-By: {{ item.signed_by | default('/etc/apt/keyrings/server-setup-' ~ item.name ~ '.' ~ (item.key_format | default('asc'))) }}

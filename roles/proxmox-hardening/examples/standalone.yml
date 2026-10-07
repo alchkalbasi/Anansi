@@ -14,6 +14,15 @@ pve_hardening_sshd: false
 pve_hardening_disable_ksm: true
 pve_hardening_ksm_stop_mode: 0
 
+# Optional host iptables policy. Review native PVE firewall and guest networking first.
+# Set actual admin/VPN source addresses and current SSH port before enabling.
+pve_hardening_iptables_rules: false
+pve_hardening_iptables_trusted_ipv4: []
+pve_hardening_iptables_trusted_ipv6: []
+pve_hardening_iptables_ssh_port: 22
+pve_hardening_iptables_tcp_ports: [8006]
+pve_hardening_iptables_persistent: false
+
 # Set actual admin/VPN source addresses before enabling.
 pve_hardening_fail2ban: false
 pve_hardening_trusted_networks: []

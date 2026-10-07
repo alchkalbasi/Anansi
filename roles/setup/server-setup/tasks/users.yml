@@ -1,0 +1,77 @@
+---
+- name: Inspect existing local accounts
+  ansible.builtin.getent:
+    database: passwd
+
+- name: Create or update selected administrator accounts
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    home: "{{ item.home | default(omit if item.name in ansible_facts.getent_passwd else '/home/' ~ item.name) }}"
+    shell: "{{ item.shell | default(omit if item.name in ansible_facts.getent_passwd else '/bin/bash') }}"
+    groups: "{{ item.groups | default(omit) }}"
+    append: true
+    create_home: true
+    password: "{{ item.password | default(omit) }}"
+    update_password: on_create
+    state: present
+  loop: "{{ server_setup_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: "{{ item.password is defined }}"
+
+- name: Read account homes and primary group IDs after provisioning
+  ansible.builtin.getent:
+    database: passwd
+
+- name: Create administrator SSH directories
+  ansible.builtin.file:
+    path: "{{ ansible_facts.getent_passwd[item.name][4] }}/.ssh"
+    state: directory
+    owner: "{{ item.name }}"
+    group: "{{ ansible_facts.getent_passwd[item.name][2] }}"
+    mode: '0700'
+  loop: "{{ server_setup_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: not ansible_check_mode or item.name in ansible_facts.getent_passwd
+
+- name: Install selected public keys while preserving existing keys
+  ansible.posix.authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ item.authorized_keys | join('\n') }}"
+    state: present
+    exclusive: false
+    manage_dir: true
+  loop: "{{ server_setup_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - item.authorized_keys | default([]) | length > 0
+    - not ansible_check_mode or item.name in ansible_facts.getent_passwd
+
+- name: Install validated administrator sudo grants
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/80-server-setup-{{ item.name }}"
+    content: "{{ item.name }} ALL=(ALL:ALL) {{ 'NOPASSWD: ' if item.passwordless_sudo | default(false) else '' }}ALL\n"
+    owner: root
+    group: root
+    mode: '0440'
+    validate: /usr/sbin/visudo -cf %s
+  loop: "{{ server_setup_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.sudo | default(false)
+
+- name: Create administrator workspace directories
+  ansible.builtin.file:
+    path: "{{ item.workspace_path | default(ansible_facts.getent_passwd[item.name][4] ~ '/workspace') }}"
+    state: directory
+    owner: "{{ item.name }}"
+    group: "{{ ansible_facts.getent_passwd[item.name][2] }}"
+    mode: "{{ item.workspace_mode | default('0750') }}"
+  loop: "{{ server_setup_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - item.workspace | default(true)
+    - not ansible_check_mode or item.name in ansible_facts.getent_passwd

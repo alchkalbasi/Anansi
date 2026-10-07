@@ -85,6 +85,20 @@ class RoleTests(unittest.TestCase):
             self.assertTrue(task['when'].endswith(' is sameas true'))
             self.assertIsInstance(DEFAULTS[task['when'].split()[0]], bool)
 
+    def test_iptables_template_limits_management_sources_and_preserves_guest_forwarding(self):
+        env = jinja2.Environment(loader=jinja2.FileSystemLoader(ROLE / 'templates'),
+                                 undefined=jinja2.StrictUndefined)
+        values = {**DEFAULTS, 'pve_hardening_iptables_trusted_ipv4': ['192.0.2.7/32'],
+                  'pve_hardening_iptables_trusted_ipv6': ['2001:db8::7/128']}
+        for ipv6, source, protocol in ((False, '192.0.2.7/32', 'icmp'),
+                                       (True, '2001:db8::7/128', 'ipv6-icmp')):
+            rules = env.get_template('iptables-rules.j2').render(
+                values, pve_hardening_iptables_ipv6=ipv6)
+            self.assertIn(f'-A INPUT -s {source} -p tcp --dport 8006', rules)
+            self.assertIn(f'-A INPUT -p {protocol} -j ACCEPT', rules)
+            self.assertNotIn('-A FORWARD', rules)
+            self.assertNotIn('-A OUTPUT', rules)
+
     def test_ssh_candidate_preserves_proxmox_settings_and_is_idempotent(self):
         self.assertIs(DEFAULTS['pve_hardening_sshd'], False)
         spec = importlib.util.spec_from_file_location(
@@ -129,7 +143,7 @@ class RoleTests(unittest.TestCase):
         env = jinja2.Environment(loader=jinja2.FileSystemLoader(ROLE / 'templates'),
                                  undefined=jinja2.StrictUndefined)
         for path in (ROLE / 'templates').glob('*.j2'):
-            output = env.get_template(path.name).render(DEFAULTS)
+            output = env.get_template(path.name).render({**DEFAULTS, 'pve_hardening_iptables_ipv6': False})
             self.assertNotIn('{{', output)
         apt = env.get_template('apt-security.j2').render(DEFAULTS)
         self.assertIn('Automatic-Reboot "false"', apt)
